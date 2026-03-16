@@ -1,20 +1,12 @@
 const mongoose = require('mongoose');
+const logger = require('./logger');
 
-/**
- * Connect to MongoDB using Mongoose.
- * This function is invoked at server startup. If the connection fails,
- * the promise will reject and the server will exit.
- */
 async function connectDB(uri) {
   try {
-    // See https://mongoosejs.com/docs/connections.html for options
-    await mongoose.connect(uri, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true
-    });
-    console.log('MongoDB connected');
+    await mongoose.connect(uri);
+    logger.info('MongoDB connected', { uri: uri.replace(/\/\/.*@/, '//***@') });
   } catch (error) {
-    console.error('MongoDB connection error:', error.message);
+    logger.error('MongoDB connection error', { message: error.message });
     process.exit(1);
   }
 }

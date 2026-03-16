@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Environment files
+.env
+backend/.env
+
+# Build output
+dist/
+*/dist/
+build/
+
+# Uploads
+backend/uploads/
+
+# Logs
+backend/logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude memory
+.claude/
