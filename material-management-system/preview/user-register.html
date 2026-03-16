@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>用户注册 · 诸城叙梦素材管理平台</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .preview-banner {
+      background: #fbbf24;
+      padding: 8px 16px;
+      text-align: center;
+      font-size: 13px;
+      color: #78350f;
+      font-weight: 500;
+      position: sticky;
+      top: 0;
+      z-index: 999;
+      flex-shrink: 0;
+    }
+    .preview-banner a { color: #92400e; font-weight: 700; text-decoration: underline; }
+
+    .page {
+      flex: 1;
+      background: linear-gradient(135deg, #1e1b4b 0%, #3730a3 50%, #7c3aed 100%);
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 16px;
+      position: relative;
+      overflow: hidden;
+    }
+    .page::before {
+      content: '';
+      position: absolute;
+      width: 500px; height: 500px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.03);
+      top: -150px; right: -150px;
+    }
+    .card {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 36px 40px;
+      width: 100%;
+      max-width: 460px;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.3);
+      position: relative;
+      z-index: 1;
+    }
+    .logo {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .logo-icon { font-size: 36px; display: block; margin-bottom: 6px; }
+    .logo-text { font-size: 20px; font-weight: 800; color: #1e1b4b; }
+    .logo-sub { font-size: 12px; color: #9ca3af; margin-top: 2px; }
+    .divider { height: 1px; background: #e5e7eb; margin: 0 -40px 24px; }
+    .title { font-size: 22px; font-weight: 700; color: #1f2937; margin-bottom: 4px; }
+    .subtitle { font-size: 13px; color: #6b7280; margin-bottom: 24px; }
+
+    .form-group { margin-bottom: 16px; }
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 6px;
+    }
+    .form-label .optional {
+      font-weight: 400;
+      color: #9ca3af;
+      font-size: 12px;
+    }
+    .form-input {
+      width: 100%;
+      padding: 10px 13px;
+      border: 1.5px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 14px;
+      color: #1f2937;
+      background: #fafafa;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .form-input:focus {
+      border-color: #7c3aed;
+      box-shadow: 0 0 0 3px rgba(124,58,237,0.12);
+      background: white;
+    }
+    .form-select {
+      width: 100%;
+      padding: 10px 13px;
+      border: 1.5px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 14px;
+      color: #1f2937;
+      background: #fafafa;
+      outline: none;
+      cursor: pointer;
+    }
+    .form-select:focus {
+      border-color: #7c3aed;
+      box-shadow: 0 0 0 3px rgba(124,58,237,0.12);
+    }
+    .form-textarea {
+      width: 100%;
+      padding: 10px 13px;
+      border: 1.5px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 14px;
+      color: #6b7280;
+      background: #fafafa;
+      outline: none;
+      resize: none;
+      font-family: inherit;
+    }
+
+    /* Section separator */
+    .section-sep {
+      font-size: 12px;
+      font-weight: 700;
+      color: #7c3aed;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin: 20px 0 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-sep::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #ede9fe;
+    }
+
+    /* Platform radio */
+    .platform-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    .platform-option { position: relative; }
+    .platform-option input[type="radio"] { position: absolute; opacity: 0; width: 0; height: 0; }
+    .platform-label {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 12px 8px;
+      border: 2px solid #e5e7eb;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: #fafafa;
+    }
+    .platform-label:hover { border-color: #c4b5fd; background: #faf5ff; }
+    .platform-option input[type="radio"]:checked + .platform-label {
+      border-color: #7c3aed;
+      background: #ede9fe;
+    }
+    .platform-emoji { font-size: 24px; margin-bottom: 4px; }
+    .platform-name { font-size: 13px; font-weight: 600; color: #374151; }
+
+    /* Row */
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+    /* Button */
+    .btn {
+      width: 100%;
+      padding: 12px;
+      background: #7c3aed;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      margin-top: 8px;
+    }
+    .btn:hover { background: #6d28d9; transform: translateY(-1px); }
+
+    .links {
+      text-align: center;
+      margin-top: 18px;
+    }
+    .link { font-size: 13px; color: #7c3aed; text-decoration: none; font-weight: 500; }
+    .link:hover { text-decoration: underline; }
+
+    .hint { font-size: 12px; color: #9ca3af; margin-top: 5px; }
+
+    .terms {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    .terms input { margin-top: 2px; accent-color: #7c3aed; }
+    .terms label { font-size: 12px; color: #6b7280; line-height: 1.5; }
+    .terms a { color: #7c3aed; }
+  </style>
+</head>
+<body>
+  <div class="preview-banner">
+    👀 预览模式 — 仅供设计审阅使用，数据均为模拟数据 &nbsp;|&nbsp;
+    <a href="index.html">← 预览首页</a>
+  </div>
+
+  <div class="page">
+    <div class="card">
+      <div class="logo">
+        <span class="logo-icon">📦</span>
+        <div class="logo-text">诸城叙梦</div>
+        <div class="logo-sub">素材管理平台</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="title">创建账户</div>
+      <div class="subtitle">加入诸城叙梦素材社区</div>
+
+      <form>
+        <!-- Basic Info -->
+        <div class="section-sep">基本信息</div>
+
+        <div class="form-group">
+          <label class="form-label">用户名</label>
+          <input type="text" class="form-input" placeholder="请输入您的用户名" value="花小绘" />
+          <div class="hint">用户名将作为您在平台的唯一标识</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">邮箱 <span class="optional">（选填）</span></label>
+          <input type="email" class="form-input" placeholder="your@email.com" value="huaxiaohui@example.com" />
+        </div>
+
+        <div class="row">
+          <div class="form-group">
+            <label class="form-label">密码</label>
+            <input type="password" class="form-input" placeholder="设置密码" value="demo123456" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">确认密码</label>
+            <input type="password" class="form-input" placeholder="再次输入" value="demo123456" />
+          </div>
+        </div>
+
+        <!-- Platform -->
+        <div class="section-sep">平台信息</div>
+
+        <div class="form-group">
+          <label class="form-label">选择平台</label>
+          <div class="platform-grid">
+            <div class="platform-option">
+              <input type="radio" name="platform" id="p1" checked />
+              <label class="platform-label" for="p1">
+                <span class="platform-emoji">🎨</span>
+                <span class="platform-name">易次元</span>
+              </label>
+            </div>
+            <div class="platform-option">
+              <input type="radio" name="platform" id="p2" />
+              <label class="platform-label" for="p2">
+                <span class="platform-emoji">🍊</span>
+                <span class="platform-name">橙光</span>
+              </label>
+            </div>
+            <div class="platform-option">
+              <input type="radio" name="platform" id="p3" />
+              <label class="platform-label" for="p3">
+                <span class="platform-emoji">✨</span>
+                <span class="platform-name">闪艺</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="form-group">
+            <label class="form-label">平台 ID</label>
+            <input type="text" class="form-input" placeholder="您的平台用户ID" value="ycyuan_2891" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">QQ 号</label>
+            <input type="text" class="form-input" placeholder="用于联系您" value="234567890" />
+          </div>
+        </div>
+
+        <div class="terms">
+          <input type="checkbox" id="agree" checked />
+          <label for="agree">我已阅读并同意 <a href="#">《用户协议》</a>和<a href="#">《隐私政策》</a>，了解平台的素材使用规范</label>
+        </div>
+
+        <button type="button" class="btn">注 册</button>
+      </form>
+
+      <div class="links">
+        <a href="user-login.html" class="link">已有账户？立即登录 →</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

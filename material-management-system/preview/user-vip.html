@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VIP 权益 · 诸城叙梦素材管理平台</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: #f5f3ff;
+      color: #1f2937;
+    }
+    .preview-banner {
+      background: #fbbf24; padding: 8px 16px; text-align: center;
+      font-size: 13px; color: #78350f; font-weight: 500;
+      position: sticky; top: 0; z-index: 9999;
+    }
+    .preview-banner a { color: #92400e; font-weight: 700; text-decoration: underline; }
+
+    .navbar {
+      background: #1e1b4b; padding: 0 24px;
+      display: flex; align-items: center; height: 60px;
+      position: sticky; top: 37px; z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .nav-brand { font-size: 18px; font-weight: 800; color: white; text-decoration: none; margin-right: 32px; }
+    .nav-links { display: flex; align-items: center; gap: 2px; flex: 1; }
+    .nav-link {
+      padding: 8px 14px; font-size: 14px; color: #a5b4fc;
+      text-decoration: none; border-radius: 6px; transition: all 0.2s;
+    }
+    .nav-link:hover { color: white; background: rgba(255,255,255,0.08); }
+    .nav-link.active { color: white; background: rgba(124,58,237,0.5); font-weight: 600; }
+    .nav-right { display: flex; align-items: center; gap: 12px; }
+    .vip-badge { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 20px; }
+    .user-name { font-size: 14px; color: #e0e7ff; }
+    .btn-logout { padding: 6px 14px; border: 1px solid rgba(255,255,255,0.25); background: transparent; color: #a5b4fc; border-radius: 6px; font-size: 13px; cursor: pointer; }
+    .btn-logout:hover { background: rgba(255,255,255,0.1); color: white; }
+
+    .main { max-width: 900px; margin: 0 auto; padding: 32px 24px; }
+    .page-header { margin-bottom: 24px; }
+    .page-title { font-size: 22px; font-weight: 800; }
+    .page-sub { font-size: 13px; color: #6b7280; margin-top: 4px; }
+
+    /* VIP Level Card */
+    .vip-card {
+      background: linear-gradient(135deg, #1e1b4b 0%, #4c1d95 40%, #7c3aed 100%);
+      border-radius: 16px;
+      padding: 32px;
+      color: white;
+      margin-bottom: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+    .vip-card::before {
+      content: '';
+      position: absolute;
+      width: 300px; height: 300px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.05);
+      top: -100px; right: -100px;
+    }
+    .vip-card::after {
+      content: '';
+      position: absolute;
+      width: 200px; height: 200px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.04);
+      bottom: -80px; left: 60px;
+    }
+    .vip-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 24px;
+      position: relative;
+      z-index: 1;
+    }
+    .vip-level-text { font-size: 28px; font-weight: 800; }
+    .vip-stars { font-size: 22px; letter-spacing: 4px; margin-top: 4px; opacity: 0.9; }
+    .vip-since { font-size: 12px; opacity: 0.7; margin-top: 6px; }
+    .vip-emblem {
+      width: 80px; height: 80px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 40px;
+      border: 2px solid rgba(255,255,255,0.3);
+    }
+
+    .vip-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      position: relative;
+      z-index: 1;
+    }
+    .vip-stat {
+      background: rgba(255,255,255,0.1);
+      border-radius: 10px;
+      padding: 14px 16px;
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+    .vip-stat-value { font-size: 24px; font-weight: 800; }
+    .vip-stat-label { font-size: 12px; opacity: 0.75; margin-top: 4px; }
+
+    /* Progress Card */
+    .progress-card {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      border: 1px solid #e5e7eb;
+    }
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .progress-title { font-size: 15px; font-weight: 700; }
+    .progress-subtitle { font-size: 13px; color: #6b7280; }
+    .progress-next { font-size: 13px; color: #7c3aed; font-weight: 600; }
+
+    .progress-bar-wrap {
+      background: #f3f4f6;
+      border-radius: 999px;
+      height: 12px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #7c3aed, #a78bfa);
+      border-radius: 999px;
+      width: 64%;
+      position: relative;
+    }
+    .progress-bar-fill::after {
+      content: '';
+      position: absolute;
+      right: 0; top: 0; bottom: 0;
+      width: 4px;
+      background: white;
+      border-radius: 2px;
+      opacity: 0.5;
+    }
+    .progress-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #9ca3af;
+    }
+    .progress-labels .current { color: #7c3aed; font-weight: 600; }
+
+    .milestones {
+      display: flex;
+      align-items: center;
+      margin-top: 16px;
+      gap: 0;
+    }
+    .milestone {
+      flex: 1;
+      text-align: center;
+      position: relative;
+    }
+    .milestone::before {
+      content: '';
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      right: -50%;
+      height: 2px;
+      background: #e5e7eb;
+    }
+    .milestone:last-child::before { display: none; }
+    .milestone-dot {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      border: 2px solid #e5e7eb;
+      background: white;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      position: relative;
+      z-index: 1;
+    }
+    .milestone-dot.done { background: #7c3aed; border-color: #7c3aed; color: white; }
+    .milestone-dot.current { background: #7c3aed; border-color: #7c3aed; box-shadow: 0 0 0 4px rgba(124,58,237,0.2); color: white; }
+    .milestone-label { font-size: 11px; color: #9ca3af; margin-top: 5px; }
+    .milestone-label.done { color: #7c3aed; font-weight: 600; }
+    .milestone-label.current { color: #7c3aed; font-weight: 700; }
+
+    /* Table */
+    .table-card {
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      border: 1px solid #e5e7eb;
+      margin-bottom: 24px;
+    }
+    .table-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .table-title { font-size: 15px; font-weight: 700; }
+    table { width: 100%; border-collapse: collapse; }
+    thead tr { background: #f9fafb; }
+    thead th {
+      padding: 12px 16px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    thead th:first-child { text-align: left; }
+    tbody tr { border-bottom: 1px solid #f3f4f6; transition: background 0.15s; }
+    tbody tr:hover { background: #faf5ff; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr.highlight { background: #faf5ff; }
+    tbody tr.highlight td { font-weight: 700; }
+    td {
+      padding: 14px 16px;
+      font-size: 14px;
+      text-align: center;
+    }
+    td:first-child { text-align: left; }
+    .vip-level-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+    .level-1 { background: #f3f4f6; color: #6b7280; }
+    .level-2 { background: #dbeafe; color: #1d4ed8; }
+    .level-3 { background: #ede9fe; color: #6d28d9; border: 2px solid #7c3aed; }
+    .level-4 { background: #fce7f3; color: #be185d; }
+    .level-5 { background: #fef3c7; color: #92400e; }
+    .check { color: #16a34a; font-weight: 700; }
+    .cross { color: #d1d5db; }
+    .current-row-marker {
+      display: inline-block;
+      background: #7c3aed;
+      color: white;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: 6px;
+      font-weight: 600;
+    }
+
+    /* Rules */
+    .rules-card {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      border: 1px solid #e5e7eb;
+    }
+    .rules-title { font-size: 15px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .rules-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .rule-item {
+      background: #faf5ff;
+      border: 1px solid #ede9fe;
+      border-radius: 10px;
+      padding: 16px;
+    }
+    .rule-icon { font-size: 24px; margin-bottom: 8px; }
+    .rule-heading { font-size: 13px; font-weight: 700; color: #1f2937; margin-bottom: 6px; }
+    .rule-text { font-size: 12px; color: #6b7280; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <div class="preview-banner">
+    👀 预览模式 — 仅供设计审阅使用，数据均为模拟数据 &nbsp;|&nbsp;
+    <a href="index.html">← 预览首页</a>
+  </div>
+
+  <nav class="navbar">
+    <a href="#" class="nav-brand">📦 诸城叙梦</a>
+    <div class="nav-links">
+      <a href="user-assets.html" class="nav-link">我的素材</a>
+      <a href="user-activities.html" class="nav-link">账户动态</a>
+      <a href="user-shop.html" class="nav-link">店铺授权</a>
+      <a href="user-vip.html" class="nav-link active">VIP 权益</a>
+      <a href="user-help.html" class="nav-link">我的帮助</a>
+    </div>
+    <div class="nav-right">
+      <span class="user-name">花小绘</span>
+      <span class="vip-badge">⭐ VIP3</span>
+      <button class="btn-logout">退出登录</button>
+    </div>
+  </nav>
+
+  <div class="main">
+    <div class="page-header">
+      <div class="page-title">VIP 权益</div>
+      <div class="page-sub">查看您的会员等级与专属特权</div>
+    </div>
+
+    <!-- VIP Level Card -->
+    <div class="vip-card">
+      <div class="vip-header">
+        <div>
+          <div class="vip-level-text">当前等级：VIP 3</div>
+          <div class="vip-stars">⭐⭐⭐</div>
+          <div class="vip-since">铂金会员 · 自 2024年8月 起</div>
+        </div>
+        <div class="vip-emblem">👑</div>
+      </div>
+      <div class="vip-stats">
+        <div class="vip-stat">
+          <div class="vip-stat-value">5,688</div>
+          <div class="vip-stat-label">💎 累计积分</div>
+        </div>
+        <div class="vip-stat">
+          <div class="vip-stat-value">3,200</div>
+          <div class="vip-stat-label">🛒 年度消费</div>
+        </div>
+        <div class="vip-stat">
+          <div class="vip-stat-value">2 次</div>
+          <div class="vip-stat-label">🔄 剩余转让</div>
+        </div>
+        <div class="vip-stat">
+          <div class="vip-stat-value">1 次</div>
+          <div class="vip-stat-label">🔁 剩余回购</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-card">
+      <div class="progress-header">
+        <div>
+          <div class="progress-title">升级进度</div>
+          <div class="progress-subtitle">距离 VIP 4 还需 <strong style="color:#7c3aed;">3,200</strong> 积分</div>
+        </div>
+        <div class="progress-next">下一级：VIP4 · 8,888 积分</div>
+      </div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-fill"></div>
+      </div>
+      <div class="progress-labels">
+        <span class="current">5,688 pts (当前)</span>
+        <span>64% 进度</span>
+        <span>8,888 pts (目标)</span>
+      </div>
+
+      <div class="milestones">
+        <div class="milestone">
+          <div class="milestone-dot done">✓</div>
+          <div class="milestone-label done">VIP1<br>888</div>
+        </div>
+        <div class="milestone">
+          <div class="milestone-dot done">✓</div>
+          <div class="milestone-label done">VIP2<br>2,688</div>
+        </div>
+        <div class="milestone">
+          <div class="milestone-dot current">✓</div>
+          <div class="milestone-label current">VIP3<br>5,688</div>
+        </div>
+        <div class="milestone">
+          <div class="milestone-dot">4</div>
+          <div class="milestone-label">VIP4<br>8,888</div>
+        </div>
+        <div class="milestone">
+          <div class="milestone-dot">5</div>
+          <div class="milestone-label">VIP5<br>16,888</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tier Table -->
+    <div class="table-card">
+      <div class="table-header">
+        <div class="table-title">📊 等级权益对比</div>
+        <span style="font-size:12px; color:#9ca3af;">次数均为年度限额，每年1月重置</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>等级</th>
+            <th>积分门槛</th>
+            <th>年度回购</th>
+            <th>年度转让</th>
+            <th>年度插队</th>
+            <th>优先购买</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="vip-level-badge level-1">VIP 1 ⭐</span></td>
+            <td>888</td>
+            <td>1 次</td>
+            <td><span class="cross">—</span></td>
+            <td><span class="cross">—</span></td>
+            <td><span class="check">✓</span></td>
+          </tr>
+          <tr>
+            <td><span class="vip-level-badge level-2">VIP 2 ⭐⭐</span></td>
+            <td>2,688</td>
+            <td>1 次</td>
+            <td>1 次</td>
+            <td><span class="cross">—</span></td>
+            <td><span class="check">✓</span></td>
+          </tr>
+          <tr class="highlight">
+            <td>
+              <span class="vip-level-badge level-3">VIP 3 ⭐⭐⭐</span>
+              <span class="current-row-marker">当前</span>
+            </td>
+            <td>5,688</td>
+            <td>2 次</td>
+            <td>2 次</td>
+            <td><span class="cross">—</span></td>
+            <td><span class="check">✓</span></td>
+          </tr>
+          <tr>
+            <td><span class="vip-level-badge level-4">VIP 4 ⭐⭐⭐⭐</span></td>
+            <td>8,888</td>
+            <td>2 次</td>
+            <td>3 次</td>
+            <td>3 次</td>
+            <td><span class="check">✓</span></td>
+          </tr>
+          <tr>
+            <td><span class="vip-level-badge level-5">VIP 5 ⭐⭐⭐⭐⭐</span></td>
+            <td>16,888</td>
+            <td>3 次</td>
+            <td>6 次</td>
+            <td>6 次</td>
+            <td><span class="check">✓</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Rules -->
+    <div class="rules-card">
+      <div class="rules-title">📋 规则说明</div>
+      <div class="rules-grid">
+        <div class="rule-item">
+          <div class="rule-icon">💎</div>
+          <div class="rule-heading">积分说明</div>
+          <div class="rule-text">购买素材自动累积积分，积分等同于消费金额（1元=1积分）。赞助他人的素材也计入积分，赠品不计入。</div>
+        </div>
+        <div class="rule-item">
+          <div class="rule-icon">⭐</div>
+          <div class="rule-heading">等级说明</div>
+          <div class="rule-text">VIP等级根据累计积分自动升级，等级永久有效不降级。年度消费指当年1月1日至12月31日的消费总额。</div>
+        </div>
+        <div class="rule-item">
+          <div class="rule-icon">🔄</div>
+          <div class="rule-heading">次数重置说明</div>
+          <div class="rule-text">回购、转让、插队次数为年度权益，每年1月1日重置，未使用次数不累积至下一年。请合理规划使用。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

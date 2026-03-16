@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VIP 顾客 · 管理后台 · 诸城叙梦</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: #f5f3ff; color: #1f2937;
+      display: flex; flex-direction: column; min-height: 100vh;
+    }
+    .preview-banner {
+      background: #fbbf24; padding: 8px 16px; text-align: center;
+      font-size: 13px; color: #78350f; font-weight: 500;
+      position: sticky; top: 0; z-index: 9999; flex-shrink: 0;
+    }
+    .preview-banner a { color: #92400e; font-weight: 700; text-decoration: underline; }
+
+    .app { display: flex; flex: 1; }
+    .sidebar {
+      width: 220px; background: #1e1b4b; flex-shrink: 0;
+      display: flex; flex-direction: column;
+      min-height: calc(100vh - 37px);
+      position: sticky; top: 37px; height: calc(100vh - 37px); overflow-y: auto;
+    }
+    .sidebar-brand { padding: 20px 16px 16px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .brand-logo { font-size: 22px; font-weight: 800; color: white; display: flex; align-items: center; gap: 8px; }
+    .brand-sub { font-size: 11px; color: #818cf8; margin-top: 3px; }
+    .sidebar-nav { flex: 1; padding: 12px 8px; }
+    .nav-group-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #4f46e5; padding: 10px 10px 4px; }
+    .nav-item {
+      display: flex; align-items: center; gap: 9px;
+      padding: 9px 12px; border-radius: 8px; font-size: 13.5px;
+      color: #a5b4fc; text-decoration: none; transition: all 0.15s; margin-bottom: 1px;
+    }
+    .nav-item:hover { background: rgba(255,255,255,0.07); color: white; }
+    .nav-item.active { background: #7c3aed; color: white; font-weight: 600; }
+    .nav-item .icon { font-size: 15px; width: 18px; text-align: center; }
+    .nav-badge { margin-left: auto; background: #dc2626; color: white; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 10px; }
+    .sidebar-footer { padding: 14px 12px; border-top: 1px solid rgba(255,255,255,0.08); }
+    .admin-info { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .admin-avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #7c3aed, #4c1d95); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; color: white; }
+    .admin-name { font-size: 13px; font-weight: 600; color: white; }
+    .admin-role { font-size: 11px; color: #818cf8; }
+    .btn-sidebar-logout { width: 100%; padding: 7px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #a5b4fc; border-radius: 6px; font-size: 12px; cursor: pointer; }
+    .btn-sidebar-logout:hover { background: rgba(220,38,38,0.2); color: #fca5a5; }
+
+    /* Main */
+    .main { flex: 1; padding: 28px 32px; min-width: 0; }
+    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+    .page-title { font-size: 22px; font-weight: 800; }
+    .page-sub { font-size: 13px; color: #6b7280; margin-top: 3px; }
+    .header-actions { display: flex; gap: 10px; }
+
+    .btn-primary { padding: 9px 18px; background: #7c3aed; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .btn-primary:hover { background: #6d28d9; }
+    .btn-warning { padding: 9px 18px; background: #d97706; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .btn-warning:hover { background: #b45309; }
+    .btn-outline { padding: 9px 18px; background: white; color: #374151; border: 1.5px solid #e5e7eb; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .btn-outline:hover { border-color: #7c3aed; color: #7c3aed; }
+
+    /* Level Summary */
+    .level-cards {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .level-card {
+      background: white;
+      border-radius: 10px;
+      padding: 14px 16px;
+      text-align: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      border: 1px solid #e5e7eb;
+      border-top: 3px solid;
+    }
+    .lc-1 { border-top-color: #9ca3af; }
+    .lc-2 { border-top-color: #3b82f6; }
+    .lc-3 { border-top-color: #7c3aed; }
+    .lc-4 { border-top-color: #be185d; }
+    .lc-5 { border-top-color: #d97706; }
+    .level-card-level { font-size: 13px; font-weight: 700; color: #6b7280; margin-bottom: 6px; }
+    .level-card-count { font-size: 28px; font-weight: 800; color: #1f2937; }
+    .level-card-label { font-size: 12px; color: #9ca3af; margin-top: 3px; }
+
+    /* Filter */
+    .filter-bar {
+      background: white; border-radius: 10px; padding: 13px 16px;
+      display: flex; align-items: center; gap: 10px; margin-bottom: 18px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08); border: 1px solid #e5e7eb; flex-wrap: wrap;
+    }
+    .filter-input, .filter-select {
+      padding: 8px 12px; border: 1.5px solid #e5e7eb; border-radius: 7px;
+      font-size: 13px; color: #1f2937; background: #fafafa; outline: none;
+    }
+    .filter-input { width: 200px; }
+    .filter-input:focus, .filter-select:focus { border-color: #7c3aed; }
+    .btn-search { padding: 8px 16px; background: #7c3aed; color: white; border: none; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .btn-search:hover { background: #6d28d9; }
+
+    /* Table */
+    .table-card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border: 1px solid #e5e7eb; }
+    .table-info { padding: 13px 20px; border-bottom: 1px solid #f3f4f6; display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #6b7280; }
+    table { width: 100%; border-collapse: collapse; }
+    thead tr { background: #f9fafb; }
+    thead th { padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
+    tbody tr { border-bottom: 1px solid #f3f4f6; transition: background 0.15s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: #faf5ff; }
+    td { padding: 13px 14px; font-size: 13px; vertical-align: middle; }
+
+    .user-cell { display: flex; align-items: center; gap: 10px; }
+    .user-ava { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: white; flex-shrink: 0; }
+    .ua1 { background: linear-gradient(135deg, #d97706, #b45309); }
+    .ua2 { background: linear-gradient(135deg, #be185d, #9d174d); }
+    .ua3 { background: linear-gradient(135deg, #7c3aed, #4c1d95); }
+    .ua4 { background: linear-gradient(135deg, #1d4ed8, #1e3a8a); }
+    .ua5 { background: linear-gradient(135deg, #0f766e, #134e4a); }
+    .user-name { font-weight: 600; color: #1f2937; }
+    .user-sub { font-size: 11px; color: #9ca3af; }
+
+    /* VIP badges */
+    .vip-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700;
+    }
+    .vip-5 { background: #fef3c7; color: #92400e; border: 1.5px solid #fde68a; }
+    .vip-4 { background: #fce7f3; color: #be185d; border: 1.5px solid #fbcfe8; }
+    .vip-3 { background: #ede9fe; color: #6d28d9; border: 1.5px solid #ddd6fe; }
+    .vip-2 { background: #dbeafe; color: #1d4ed8; border: 1.5px solid #bfdbfe; }
+    .vip-1 { background: #f3f4f6; color: #6b7280; border: 1.5px solid #e5e7eb; }
+
+    .pts { font-weight: 700; color: #7c3aed; }
+    .remain { text-align: center; }
+    .remain-val { font-size: 14px; font-weight: 700; color: #1f2937; }
+    .remain-zero { color: #9ca3af; }
+
+    .plat-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; background: #ede9fe; color: #6d28d9; }
+    .plat-tag.orange { background: #fef3c7; color: #92400e; }
+    .plat-tag.flash { background: #dcfce7; color: #15803d; }
+
+    .btn-edit { padding: 5px 12px; background: #ede9fe; color: #6d28d9; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
+    .btn-edit:hover { background: #ddd6fe; }
+  </style>
+</head>
+<body>
+  <div class="preview-banner">
+    👀 预览模式 — 仅供设计审阅使用，数据均为模拟数据 &nbsp;|&nbsp;
+    <a href="index.html">← 预览首页</a>
+  </div>
+
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-logo">🌸 诸城叙梦</div>
+        <div class="brand-sub">素材管理平台</div>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-group-label">概览</div>
+        <a href="admin-dashboard.html" class="nav-item"><span class="icon">📊</span> 仪表盘</a>
+        <div class="nav-group-label">素材管理</div>
+        <a href="admin-items.html" class="nav-item"><span class="icon">🗂️</span> 商品列表</a>
+        <a href="#" class="nav-item"><span class="icon">➕</span> 新增商品</a>
+        <div class="nav-group-label">交易管理</div>
+        <a href="#" class="nav-item"><span class="icon">📋</span> 交易记录</a>
+        <a href="#" class="nav-item"><span class="icon">📥</span> 批量导入</a>
+        <div class="nav-group-label">VIP 管理</div>
+        <a href="admin-vip.html" class="nav-item active"><span class="icon">👑</span> VIP 顾客</a>
+        <a href="#" class="nav-item"><span class="icon">⚙️</span> 等级配置</a>
+        <a href="#" class="nav-item"><span class="icon">📤</span> VIP 导入</a>
+        <div class="nav-group-label">用户管理</div>
+        <a href="#" class="nav-item"><span class="icon">👥</span> 用户列表</a>
+        <div class="nav-group-label">运营</div>
+        <a href="admin-applications.html" class="nav-item">
+          <span class="icon">✅</span> 审核中心 <span class="nav-badge">3</span>
+        </a>
+        <a href="#" class="nav-item"><span class="icon">🔄</span> 转让记录</a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="admin-info">
+          <div class="admin-avatar">A</div>
+          <div><div class="admin-name">admin</div><div class="admin-role">超级管理员</div></div>
+        </div>
+        <button class="btn-sidebar-logout">退出登录</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="page-header">
+        <div>
+          <div class="page-title">VIP 顾客</div>
+          <div class="page-sub">管理平台所有 VIP 会员的等级与权益</div>
+        </div>
+        <div class="header-actions">
+          <button class="btn-outline">📤 导出数据</button>
+          <button class="btn-outline">🔄 重置年度消费</button>
+          <button class="btn-warning">⚡ 重置年度次数</button>
+        </div>
+      </div>
+
+      <!-- Level Summary -->
+      <div class="level-cards">
+        <div class="level-card lc-1">
+          <div class="level-card-level">VIP 1 ⭐</div>
+          <div class="level-card-count">4</div>
+          <div class="level-card-label">人</div>
+        </div>
+        <div class="level-card lc-2">
+          <div class="level-card-level">VIP 2 ⭐⭐</div>
+          <div class="level-card-count">6</div>
+          <div class="level-card-label">人</div>
+        </div>
+        <div class="level-card lc-3">
+          <div class="level-card-level">VIP 3 ⭐⭐⭐</div>
+          <div class="level-card-count">5</div>
+          <div class="level-card-label">人</div>
+        </div>
+        <div class="level-card lc-4">
+          <div class="level-card-level">VIP 4 ⭐⭐⭐⭐</div>
+          <div class="level-card-count">2</div>
+          <div class="level-card-label">人</div>
+        </div>
+        <div class="level-card lc-5">
+          <div class="level-card-level">VIP 5 ⭐⭐⭐⭐⭐</div>
+          <div class="level-card-count">1</div>
+          <div class="level-card-label">人</div>
+        </div>
+      </div>
+
+      <!-- Filter -->
+      <div class="filter-bar">
+        <input type="text" class="filter-input" placeholder="搜索用户名 / QQ号..." />
+        <select class="filter-select">
+          <option>全部等级</option>
+          <option>VIP 5</option>
+          <option>VIP 4</option>
+          <option>VIP 3</option>
+          <option>VIP 2</option>
+          <option>VIP 1</option>
+        </select>
+        <select class="filter-select">
+          <option>全部平台</option>
+          <option>易次元</option>
+          <option>橙光</option>
+          <option>闪艺</option>
+        </select>
+        <button class="btn-search">🔍 搜索</button>
+      </div>
+
+      <!-- Table -->
+      <div class="table-card">
+        <div class="table-info">
+          显示 <strong style="color:#1f2937;">1–5</strong> 条，共 <strong style="color:#1f2937;">18</strong> 位 VIP 顾客
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>用户</th>
+              <th>QQ 号</th>
+              <th>平台</th>
+              <th>VIP 等级</th>
+              <th>累计积分</th>
+              <th>年度消费</th>
+              <th>剩余转让</th>
+              <th>剩余回购</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- VIP 5 -->
+            <tr>
+              <td>
+                <div class="user-cell">
+                  <div class="user-ava ua1">幻</div>
+                  <div>
+                    <div class="user-name">幻梦织梦人</div>
+                    <div class="user-sub">注册于 2023-01-08</div>
+                  </div>
+                </div>
+              </td>
+              <td style="color:#6b7280;">112233445</td>
+              <td><span class="plat-tag">易次元</span></td>
+              <td><span class="vip-badge vip-5">⭐⭐⭐⭐⭐ VIP 5</span></td>
+              <td class="pts">18,256</td>
+              <td class="pts">12,800</td>
+              <td class="remain"><span class="remain-val">5</span></td>
+              <td class="remain"><span class="remain-val">3</span></td>
+              <td><button class="btn-edit">编辑</button></td>
+            </tr>
+            <!-- VIP 4 -->
+            <tr>
+              <td>
+                <div class="user-cell">
+                  <div class="user-ava ua2">银</div>
+                  <div>
+                    <div class="user-name">银河游记</div>
+                    <div class="user-sub">注册于 2023-06-20</div>
+                  </div>
+                </div>
+              </td>
+              <td style="color:#6b7280;">223344556</td>
+              <td><span class="plat-tag orange">橙光</span></td>
+              <td><span class="vip-badge vip-4">⭐⭐⭐⭐ VIP 4</span></td>
+              <td class="pts">9,472</td>
+              <td class="pts">6,400</td>
+              <td class="remain"><span class="remain-val">3</span></td>
+              <td class="remain"><span class="remain-val">2</span></td>
+              <td><button class="btn-edit">编辑</button></td>
+            </tr>
+            <!-- VIP 3 -->
+            <tr style="background:#faf5ff;">
+              <td>
+                <div class="user-cell">
+                  <div class="user-ava ua3">花</div>
+                  <div>
+                    <div class="user-name">花小绘</div>
+                    <div class="user-sub">注册于 2024-08-15</div>
+                  </div>
+                </div>
+              </td>
+              <td style="color:#6b7280;">234567890</td>
+              <td><span class="plat-tag">易次元</span></td>
+              <td><span class="vip-badge vip-3">⭐⭐⭐ VIP 3</span></td>
+              <td class="pts">5,688</td>
+              <td class="pts">3,200</td>
+              <td class="remain"><span class="remain-val">2</span></td>
+              <td class="remain"><span class="remain-val">1</span></td>
+              <td><button class="btn-edit">编辑</button></td>
+            </tr>
+            <!-- VIP 2 -->
+            <tr>
+              <td>
+                <div class="user-cell">
+                  <div class="user-ava ua4">云</div>
+                  <div>
+                    <div class="user-name">云端梦工厂</div>
+                    <div class="user-sub">注册于 2024-11-03</div>
+                  </div>
+                </div>
+              </td>
+              <td style="color:#6b7280;">345678901</td>
+              <td><span class="plat-tag orange">橙光</span></td>
+              <td><span class="vip-badge vip-2">⭐⭐ VIP 2</span></td>
+              <td class="pts">3,104</td>
+              <td class="pts">1,800</td>
+              <td class="remain"><span class="remain-val">1</span></td>
+              <td class="remain"><span class="remain-val">1</span></td>
+              <td><button class="btn-edit">编辑</button></td>
+            </tr>
+            <!-- VIP 1 -->
+            <tr>
+              <td>
+                <div class="user-cell">
+                  <div class="user-ava ua5">晓</div>
+                  <div>
+                    <div class="user-name">晓梦星辰</div>
+                    <div class="user-sub">注册于 2025-02-28</div>
+                  </div>
+                </div>
+              </td>
+              <td style="color:#6b7280;">456789012</td>
+              <td><span class="plat-tag flash">闪艺</span></td>
+              <td><span class="vip-badge vip-1">⭐ VIP 1</span></td>
+              <td class="pts">1,024</td>
+              <td class="pts">600</td>
+              <td class="remain"><span class="remain-val remain-zero">0</span></td>
+              <td class="remain"><span class="remain-val">1</span></td>
+              <td><button class="btn-edit">编辑</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

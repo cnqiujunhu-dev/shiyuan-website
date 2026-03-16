@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>仪表盘 · 管理后台 · 诸城叙梦</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: #f5f3ff;
+      color: #1f2937;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    .preview-banner {
+      background: #fbbf24; padding: 8px 16px; text-align: center;
+      font-size: 13px; color: #78350f; font-weight: 500;
+      position: sticky; top: 0; z-index: 9999; flex-shrink: 0;
+    }
+    .preview-banner a { color: #92400e; font-weight: 700; text-decoration: underline; }
+
+    .app { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 220px;
+      background: #1e1b4b;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      min-height: calc(100vh - 37px);
+      position: sticky;
+      top: 37px;
+      height: calc(100vh - 37px);
+      overflow-y: auto;
+    }
+    .sidebar-brand {
+      padding: 20px 16px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .brand-logo { font-size: 22px; font-weight: 800; color: white; display: flex; align-items: center; gap: 8px; }
+    .brand-sub { font-size: 11px; color: #818cf8; margin-top: 3px; letter-spacing: 0.3px; }
+
+    .sidebar-nav { flex: 1; padding: 12px 8px; overflow-y: auto; }
+    .nav-group-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #4f46e5;
+      padding: 10px 10px 4px;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 9px 12px;
+      border-radius: 8px;
+      font-size: 13.5px;
+      color: #a5b4fc;
+      text-decoration: none;
+      transition: all 0.15s;
+      margin-bottom: 1px;
+    }
+    .nav-item:hover { background: rgba(255,255,255,0.07); color: white; }
+    .nav-item.active { background: #7c3aed; color: white; font-weight: 600; }
+    .nav-item .icon { font-size: 15px; width: 18px; text-align: center; }
+
+    .sidebar-footer {
+      padding: 14px 12px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .admin-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .admin-avatar {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #7c3aed, #4c1d95);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 800; color: white;
+    }
+    .admin-name { font-size: 13px; font-weight: 600; color: white; }
+    .admin-role { font-size: 11px; color: #818cf8; }
+    .btn-sidebar-logout {
+      width: 100%;
+      padding: 7px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #a5b4fc;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-sidebar-logout:hover { background: rgba(220,38,38,0.2); border-color: rgba(220,38,38,0.3); color: #fca5a5; }
+
+    /* ── Main ── */
+    .main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px 32px;
+      min-width: 0;
+    }
+
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 28px;
+    }
+    .page-title { font-size: 24px; font-weight: 800; color: #1f2937; }
+    .page-sub { font-size: 13px; color: #6b7280; margin-top: 3px; }
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #dcfce7;
+      color: #15803d;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      border: 1px solid #bbf7d0;
+    }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #16a34a;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(0.85); }
+    }
+
+    /* Stat Cards */
+    .stat-cards {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .stat-card {
+      background: white;
+      border-radius: 12px;
+      padding: 22px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      border: 1px solid #e5e7eb;
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+    }
+    .stat-card.c1::before { background: #7c3aed; }
+    .stat-card.c2::before { background: #16a34a; }
+    .stat-card.c3::before { background: #d97706; }
+    .stat-card.c4::before { background: #dc2626; }
+    .stat-card-icon { font-size: 28px; margin-bottom: 10px; }
+    .stat-card-value { font-size: 36px; font-weight: 800; color: #1f2937; line-height: 1; }
+    .stat-card-label { font-size: 13px; color: #6b7280; margin-top: 6px; }
+    .stat-card-delta { font-size: 12px; margin-top: 8px; display: flex; align-items: center; gap: 4px; }
+    .delta-up { color: #16a34a; }
+    .delta-warn { color: #d97706; }
+
+    /* Quick Links */
+    .section-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; color: #1f2937; }
+    .quick-links {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+    .quick-link {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      text-decoration: none;
+      color: inherit;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      border: 1px solid #e5e7eb;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .quick-link:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(124,58,237,0.12);
+      border-color: #c4b5fd;
+    }
+    .quick-link-icon {
+      width: 44px; height: 44px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+    .ql-purple { background: #ede9fe; }
+    .ql-green { background: #dcfce7; }
+    .ql-blue { background: #dbeafe; }
+    .ql-amber { background: #fef3c7; }
+    .ql-red { background: #fee2e2; }
+    .ql-teal { background: #ccfbf1; }
+    .quick-link-title { font-size: 14px; font-weight: 700; color: #1f2937; }
+    .quick-link-sub { font-size: 12px; color: #6b7280; margin-top: 2px; }
+
+    /* Recent Activity */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .panel {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      border: 1px solid #e5e7eb;
+      overflow: hidden;
+    }
+    .panel-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid #f3f4f6;
+      font-size: 14px;
+      font-weight: 700;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .panel-header a { font-size: 12px; color: #7c3aed; text-decoration: none; }
+    .panel-body { padding: 12px; }
+
+    .mini-list-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 8px;
+      border-radius: 8px;
+      transition: background 0.15s;
+    }
+    .mini-list-item:hover { background: #faf5ff; }
+    .mini-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .mini-dot-purple { background: #7c3aed; }
+    .mini-dot-green { background: #16a34a; }
+    .mini-dot-amber { background: #d97706; }
+    .mini-dot-red { background: #dc2626; }
+    .mini-content { flex: 1; min-width: 0; }
+    .mini-title { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mini-sub { font-size: 11px; color: #9ca3af; }
+    .mini-value { font-size: 12px; font-weight: 700; white-space: nowrap; }
+    .mini-value.green { color: #16a34a; }
+    .mini-value.purple { color: #7c3aed; }
+  </style>
+</head>
+<body>
+  <div class="preview-banner">
+    👀 预览模式 — 仅供设计审阅使用，数据均为模拟数据 &nbsp;|&nbsp;
+    <a href="index.html">← 预览首页</a>
+  </div>
+
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-logo">🌸 诸城叙梦</div>
+        <div class="brand-sub">素材管理平台</div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-group-label">概览</div>
+        <a href="admin-dashboard.html" class="nav-item active">
+          <span class="icon">📊</span> 仪表盘
+        </a>
+
+        <div class="nav-group-label">素材管理</div>
+        <a href="admin-items.html" class="nav-item">
+          <span class="icon">🗂️</span> 商品列表
+        </a>
+        <a href="#" class="nav-item">
+          <span class="icon">➕</span> 新增商品
+        </a>
+
+        <div class="nav-group-label">交易管理</div>
+        <a href="#" class="nav-item">
+          <span class="icon">📋</span> 交易记录
+        </a>
+        <a href="#" class="nav-item">
+          <span class="icon">📥</span> 批量导入
+        </a>
+
+        <div class="nav-group-label">VIP 管理</div>
+        <a href="admin-vip.html" class="nav-item">
+          <span class="icon">👑</span> VIP 顾客
+        </a>
+        <a href="#" class="nav-item">
+          <span class="icon">⚙️</span> 等级配置
+        </a>
+        <a href="#" class="nav-item">
+          <span class="icon">📤</span> VIP 导入
+        </a>
+
+        <div class="nav-group-label">用户管理</div>
+        <a href="#" class="nav-item">
+          <span class="icon">👥</span> 用户列表
+        </a>
+
+        <div class="nav-group-label">运营</div>
+        <a href="admin-applications.html" class="nav-item">
+          <span class="icon">✅</span> 审核中心
+        </a>
+        <a href="#" class="nav-item">
+          <span class="icon">🔄</span> 转让记录
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="admin-info">
+          <div class="admin-avatar">A</div>
+          <div>
+            <div class="admin-name">admin</div>
+            <div class="admin-role">超级管理员</div>
+          </div>
+        </div>
+        <button class="btn-sidebar-logout">退出登录</button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main">
+      <div class="page-header">
+        <div>
+          <div class="page-title">仪表盘</div>
+          <div class="page-sub">欢迎回来，admin · 2026年3月16日 星期一</div>
+        </div>
+        <div class="status-badge">
+          <div class="status-dot"></div>
+          系统状态：正常运行
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stat-cards">
+        <div class="stat-card c1">
+          <div class="stat-card-icon">🗂️</div>
+          <div class="stat-card-value">42</div>
+          <div class="stat-card-label">商品总数</div>
+          <div class="stat-card-delta delta-up">↑ 较上月 +3 件</div>
+        </div>
+        <div class="stat-card c2">
+          <div class="stat-card-icon">👑</div>
+          <div class="stat-card-value">18</div>
+          <div class="stat-card-label">VIP 用户</div>
+          <div class="stat-card-delta delta-up">↑ 本月新增 2 人</div>
+        </div>
+        <div class="stat-card c3">
+          <div class="stat-card-icon">💸</div>
+          <div class="stat-card-value">5</div>
+          <div class="stat-card-label">今日交易</div>
+          <div class="stat-card-delta delta-up">↑ 共 1,288 积分</div>
+        </div>
+        <div class="stat-card c4">
+          <div class="stat-card-icon">⏳</div>
+          <div class="stat-card-value">3</div>
+          <div class="stat-card-label">待审核申请</div>
+          <div class="stat-card-delta delta-warn">⚠️ 请及时处理</div>
+        </div>
+      </div>
+
+      <!-- Quick Links -->
+      <div class="section-title">⚡ 快捷操作</div>
+      <div class="quick-links">
+        <a href="admin-items.html" class="quick-link">
+          <div class="quick-link-icon ql-purple">➕</div>
+          <div>
+            <div class="quick-link-title">新增商品</div>
+            <div class="quick-link-sub">上架新的素材商品</div>
+          </div>
+        </a>
+        <a href="#" class="quick-link">
+          <div class="quick-link-icon ql-green">📥</div>
+          <div>
+            <div class="quick-link-title">批量导入交易</div>
+            <div class="quick-link-sub">Excel 批量导入</div>
+          </div>
+        </a>
+        <a href="admin-vip.html" class="quick-link">
+          <div class="quick-link-icon ql-amber">👑</div>
+          <div>
+            <div class="quick-link-title">VIP 顾客</div>
+            <div class="quick-link-sub">管理会员权益</div>
+          </div>
+        </a>
+        <a href="admin-applications.html" class="quick-link">
+          <div class="quick-link-icon ql-red">✅</div>
+          <div>
+            <div class="quick-link-title">审核中心</div>
+            <div class="quick-link-sub">3 个待审核申请</div>
+          </div>
+        </a>
+        <a href="#" class="quick-link">
+          <div class="quick-link-icon ql-teal">🔄</div>
+          <div>
+            <div class="quick-link-title">转让记录</div>
+            <div class="quick-link-sub">查看素材转让历史</div>
+          </div>
+        </a>
+        <a href="#" class="quick-link">
+          <div class="quick-link-icon ql-blue">⚙️</div>
+          <div>
+            <div class="quick-link-title">等级配置</div>
+            <div class="quick-link-sub">VIP 门槛与权益设置</div>
+          </div>
+        </a>
+      </div>
+
+      <!-- Two columns -->
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-header">
+            📋 最近交易
+            <a href="#">查看全部</a>
+          </div>
+          <div class="panel-body">
+            <div class="mini-list-item">
+              <div class="mini-dot mini-dot-purple"></div>
+              <div class="mini-content">
+                <div class="mini-title">花之物语·春季背景</div>
+                <div class="mini-sub">花小绘 · 2026-03-16 10:22</div>
+              </div>
+              <div class="mini-value green">+188</div>
+            </div>
+            <div class="mini-list-item">
+              <div class="mini-dot mini-dot-green"></div>
+              <div class="mini-content">
+                <div class="mini-title">梦境旋律·完整OST</div>
+                <div class="mini-sub">云端梦工厂 · 2026-03-16 09:15</div>
+              </div>
+              <div class="mini-value green">+188</div>
+            </div>
+            <div class="mini-list-item">
+              <div class="mini-dot mini-dot-amber"></div>
+              <div class="mini-content">
+                <div class="mini-title">战纪传说·立绘全集</div>
+                <div class="mini-sub">晓梦星 · 2026-03-15 18:40</div>
+              </div>
+              <div class="mini-value green">+588</div>
+            </div>
+            <div class="mini-list-item">
+              <div class="mini-dot mini-dot-purple"></div>
+              <div class="mini-content">
+                <div class="mini-title">古风雅集·通用素材</div>
+                <div class="mini-sub">暮光兔 · 2026-03-15 14:20</div>
+              </div>
+              <div class="mini-value green">+168</div>
+            </div>
+            <div class="mini-list-item">
+              <div class="mini-dot mini-dot-green"></div>
+              <div class="mini-content">
+                <div class="mini-title">月夜奇谭·场景包</div>
+                <div class="mini-sub">梦影工坊 · 2026-03-15 11:08</div>
+              </div>
+              <div class="mini-value green">+388</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            ⏳ 待处理事项
+            <a href="#">查看全部</a>
+          </div>
+          <div class="panel-body">
+            <div class="mini-list-item">
+              <div class="mini-dot mini-dot-red"></div>
+              <div class="mini-content">
+                <div class="mini-title">平台变更申请 · 花小绘</div>
+                <div class="mini-sub">易次元 → 橙光 · 2026-03-14</div>
+              </div>
+              <div class="mini-value" style="color:#d97706;">待审核</div>
+            </div>
+            <div class="mini-list-item">
+              <div class="mini-dot mini-dot-red"></div>
+              <div class="mini-content">
+                <div class="mini-title">平台变更申请 · 云端梦</div>
+                <div class="mini-sub">橙光 → 闪艺 · 2026-03-12</div>
+              </div>
+              <div class="mini-value" style="color:#d97706;">待审核</div>
+            </div>
+            <div class="mini-list-item">
+              <div class="mini-dot mini-dot-red"></div>
+              <div class="mini-content">
+                <div class="mini-title">平台变更申请 · 晓梦星</div>
+                <div class="mini-sub">闪艺 → 易次元 · 2026-03-10</div>
+              </div>
+              <div class="mini-value" style="color:#d97706;">待审核</div>
+            </div>
+            <div class="mini-list-item">
+              <div class="mini-dot mini-dot-amber"></div>
+              <div class="mini-content">
+                <div class="mini-title">素材转让审核 · 花小绘</div>
+                <div class="mini-sub">少女战记·立绘 · 2026-03-09</div>
+              </div>
+              <div class="mini-value purple">处理中</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

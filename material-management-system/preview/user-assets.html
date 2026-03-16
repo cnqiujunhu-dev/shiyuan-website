@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>我的素材 · 诸城叙梦素材管理平台</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: #f5f3ff;
+      color: #1f2937;
+    }
+
+    /* Preview Banner */
+    .preview-banner {
+      background: #fbbf24;
+      padding: 8px 16px;
+      text-align: center;
+      font-size: 13px;
+      color: #78350f;
+      font-weight: 500;
+      position: sticky;
+      top: 0;
+      z-index: 9999;
+    }
+    .preview-banner a { color: #92400e; font-weight: 700; text-decoration: underline; }
+
+    /* Nav */
+    .navbar {
+      background: #1e1b4b;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      gap: 0;
+      height: 60px;
+      position: sticky;
+      top: 37px;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .nav-brand {
+      font-size: 18px;
+      font-weight: 800;
+      color: white;
+      text-decoration: none;
+      margin-right: 32px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      flex: 1;
+    }
+    .nav-link {
+      padding: 8px 14px;
+      font-size: 14px;
+      color: #a5b4fc;
+      text-decoration: none;
+      border-radius: 6px;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .nav-link:hover { color: white; background: rgba(255,255,255,0.08); }
+    .nav-link.active { color: white; background: rgba(124,58,237,0.5); font-weight: 600; }
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .vip-badge {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: white;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .user-name { font-size: 14px; color: #e0e7ff; font-weight: 500; }
+    .btn-logout {
+      padding: 6px 14px;
+      border: 1px solid rgba(255,255,255,0.25);
+      background: transparent;
+      color: #a5b4fc;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-logout:hover { background: rgba(255,255,255,0.1); color: white; }
+
+    /* Welcome Bar */
+    .welcome-bar {
+      background: linear-gradient(135deg, #4c1d95, #7c3aed);
+      padding: 20px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .welcome-title { font-size: 20px; font-weight: 700; color: white; }
+    .welcome-sub { font-size: 13px; color: rgba(255,255,255,0.75); margin-top: 3px; }
+    .welcome-vip {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: white;
+      padding: 8px 18px;
+      border-radius: 12px;
+      text-align: center;
+    }
+    .welcome-vip-level { font-size: 20px; font-weight: 800; }
+    .welcome-vip-label { font-size: 11px; opacity: 0.9; }
+
+    /* Main */
+    .main { max-width: 1100px; margin: 0 auto; padding: 28px 24px; }
+
+    /* Stat Cards */
+    .stat-cards {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      border: 1px solid #e5e7eb;
+    }
+    .stat-card-label { font-size: 12px; color: #6b7280; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+    .stat-card-value { font-size: 28px; font-weight: 800; color: #7c3aed; }
+    .stat-card-sub { font-size: 12px; color: #9ca3af; margin-top: 4px; }
+
+    /* Filter Bar */
+    .filter-bar {
+      background: white;
+      border-radius: 10px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      border: 1px solid #e5e7eb;
+      flex-wrap: wrap;
+    }
+    .filter-label { font-size: 13px; font-weight: 600; color: #374151; white-space: nowrap; }
+    .filter-input, .filter-select {
+      padding: 8px 12px;
+      border: 1.5px solid #e5e7eb;
+      border-radius: 7px;
+      font-size: 13px;
+      color: #1f2937;
+      background: #fafafa;
+      outline: none;
+    }
+    .filter-input:focus, .filter-select:focus {
+      border-color: #7c3aed;
+      box-shadow: 0 0 0 3px rgba(124,58,237,0.1);
+    }
+    .filter-input { width: 150px; }
+    .filter-sep { width: 1px; height: 28px; background: #e5e7eb; }
+    .btn-filter {
+      padding: 8px 18px;
+      background: #7c3aed;
+      color: white;
+      border: none;
+      border-radius: 7px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-filter:hover { background: #6d28d9; }
+    .btn-reset {
+      padding: 8px 14px;
+      background: white;
+      color: #6b7280;
+      border: 1.5px solid #e5e7eb;
+      border-radius: 7px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .btn-reset:hover { border-color: #7c3aed; color: #7c3aed; }
+
+    /* Section header */
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .section-title { font-size: 16px; font-weight: 700; color: #1f2937; }
+    .section-count { font-size: 13px; color: #6b7280; background: #f3f4f6; padding: 3px 10px; border-radius: 20px; }
+
+    /* Asset List */
+    .asset-list { display: flex; flex-direction: column; gap: 12px; }
+    .asset-card {
+      background: white;
+      border-radius: 10px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      border: 1px solid #e5e7eb;
+      transition: box-shadow 0.2s;
+    }
+    .asset-card:hover { box-shadow: 0 4px 12px rgba(124,58,237,0.12); border-color: #c4b5fd; }
+
+    .asset-thumb {
+      width: 80px;
+      height: 80px;
+      border-radius: 10px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+    }
+    .thumb-purple { background: linear-gradient(135deg, #7c3aed, #4c1d95); }
+    .thumb-blue { background: linear-gradient(135deg, #3730a3, #1e1b4b); }
+    .thumb-teal { background: linear-gradient(135deg, #0f766e, #134e4a); }
+    .thumb-rose { background: linear-gradient(135deg, #be185d, #831843); }
+    .thumb-amber { background: linear-gradient(135deg, #b45309, #78350f); }
+
+    .asset-info { flex: 1; min-width: 0; }
+    .asset-name { font-size: 15px; font-weight: 700; color: #1f2937; margin-bottom: 4px; }
+    .asset-meta {
+      font-size: 12px;
+      color: #6b7280;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .asset-meta span { display: flex; align-items: center; gap: 3px; }
+    .asset-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .tag-category { background: #ede9fe; color: #6d28d9; }
+    .tag-type { background: #dbeafe; color: #1d4ed8; }
+    .tag-music { background: #dcfce7; color: #15803d; }
+    .tag-cg { background: #fce7f3; color: #be185d; }
+    .tag-scene { background: #fef3c7; color: #92400e; }
+
+    .asset-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .price { font-size: 16px; font-weight: 800; color: #7c3aed; }
+    .price-sub { font-size: 11px; color: #9ca3af; }
+
+    .source-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 4px;
+    }
+    .source-own { background: #ede9fe; color: #6d28d9; }
+    .source-sponsored { background: #dcfce7; color: #15803d; }
+    .source-transferred { background: #f3f4f6; color: #9ca3af; }
+
+    .btn-download {
+      padding: 7px 16px;
+      background: #7c3aed;
+      color: white;
+      border: none;
+      border-radius: 7px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: background 0.2s;
+    }
+    .btn-download:hover { background: #6d28d9; }
+
+    .btn-transfer {
+      padding: 7px 14px;
+      background: white;
+      color: #6b7280;
+      border: 1.5px solid #e5e7eb;
+      border-radius: 7px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .btn-transfer:hover { border-color: #d97706; color: #d97706; }
+
+    .btn-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+
+    .badge-out {
+      padding: 7px 14px;
+      background: #f3f4f6;
+      color: #9ca3af;
+      border-radius: 7px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+  <div class="preview-banner">
+    👀 预览模式 — 仅供设计审阅使用，数据均为模拟数据 &nbsp;|&nbsp;
+    <a href="index.html">← 预览首页</a>
+  </div>
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <a href="#" class="nav-brand">📦 诸城叙梦</a>
+    <div class="nav-links">
+      <a href="user-assets.html" class="nav-link active">我的素材</a>
+      <a href="user-activities.html" class="nav-link">账户动态</a>
+      <a href="user-shop.html" class="nav-link">店铺授权</a>
+      <a href="user-vip.html" class="nav-link">VIP 权益</a>
+      <a href="user-help.html" class="nav-link">我的帮助</a>
+    </div>
+    <div class="nav-right">
+      <span class="user-name">花小绘</span>
+      <span class="vip-badge">⭐ VIP3</span>
+      <button class="btn-logout">退出登录</button>
+    </div>
+  </nav>
+
+  <!-- Welcome Bar -->
+  <div class="welcome-bar">
+    <div>
+      <div class="welcome-title">欢迎回来 · 花小绘</div>
+      <div class="welcome-sub">📧 邮箱：huaxiaohui@example.com &nbsp;·&nbsp; 🎨 平台：易次元 &nbsp;·&nbsp; 🆔 ycyuan_2891</div>
+    </div>
+    <div class="welcome-vip">
+      <div class="welcome-vip-level">VIP 3</div>
+      <div class="welcome-vip-label">⭐⭐⭐ 铂金会员</div>
+    </div>
+  </div>
+
+  <div class="main">
+    <!-- Stat Cards -->
+    <div class="stat-cards">
+      <div class="stat-card">
+        <div class="stat-card-label">🎨 当前平台</div>
+        <div class="stat-card-value" style="font-size:22px; color:#1e1b4b;">易次元</div>
+        <div class="stat-card-sub">ycyuan_2891</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-label">💎 累计积分</div>
+        <div class="stat-card-value">5,688</div>
+        <div class="stat-card-sub">年度消费 3,200</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-label">🔄 剩余转让次数</div>
+        <div class="stat-card-value" style="color:#d97706;">2</div>
+        <div class="stat-card-sub">年度限额 2 次</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-label">📁 素材总数</div>
+        <div class="stat-card-value">12</div>
+        <div class="stat-card-sub">5 项展示中</div>
+      </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+      <span class="filter-label">筛选</span>
+      <select class="filter-select">
+        <option>全部题材</option>
+        <option>古风</option>
+        <option>现代</option>
+        <option>奇幻</option>
+      </select>
+      <input type="text" class="filter-input" placeholder="画师名称" value="" />
+      <select class="filter-select">
+        <option>全部类型</option>
+        <option>立绘</option>
+        <option>场景</option>
+        <option>CG</option>
+        <option>音乐</option>
+      </select>
+      <div class="filter-sep"></div>
+      <button class="btn-filter">🔍 筛选</button>
+      <button class="btn-reset">重置</button>
+    </div>
+
+    <!-- Asset List -->
+    <div class="section-header">
+      <div class="section-title">我的素材列表</div>
+      <span class="section-count">共 12 项</span>
+    </div>
+
+    <div class="asset-list">
+      <!-- Item 1 -->
+      <div class="asset-card">
+        <div class="asset-thumb thumb-purple">🌸</div>
+        <div class="asset-info">
+          <div class="asset-name">花之物语·春季背景</div>
+          <div class="asset-meta">
+            <span>🖌️ 桃枝画坊</span>
+            <span>📅 2026-02-14</span>
+            <span>💰 188 积分</span>
+          </div>
+          <div class="asset-tags">
+            <span class="tag tag-category">立绘</span>
+            <span class="tag tag-type">场景</span>
+          </div>
+        </div>
+        <div class="asset-right">
+          <span class="source-badge source-own">自购</span>
+          <div class="btn-actions">
+            <button class="btn-download">⬇ 下载</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Item 2 -->
+      <div class="asset-card">
+        <div class="asset-thumb thumb-blue">🎵</div>
+        <div class="asset-info">
+          <div class="asset-name">繁星酒馆·夜间 BGM</div>
+          <div class="asset-meta">
+            <span>🖌️ 幽蓝音效</span>
+            <span>📅 2026-01-20</span>
+            <span>💰 88 积分</span>
+          </div>
+          <div class="asset-tags">
+            <span class="tag tag-music">音乐</span>
+            <span class="tag tag-type">BGM</span>
+          </div>
+        </div>
+        <div class="asset-right">
+          <span class="source-badge source-own">自购</span>
+          <div class="btn-actions">
+            <button class="btn-download">⬇ 下载</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Item 3 -->
+      <div class="asset-card">
+        <div class="asset-thumb thumb-teal">🌆</div>
+        <div class="asset-info">
+          <div class="asset-name">霓虹都市·通用 CG</div>
+          <div class="asset-meta">
+            <span>🖌️ 晨光插画</span>
+            <span>📅 2025-12-05</span>
+            <span>💰 288 积分</span>
+          </div>
+          <div class="asset-tags">
+            <span class="tag tag-cg">CG</span>
+            <span class="tag tag-type">通用</span>
+          </div>
+        </div>
+        <div class="asset-right">
+          <span class="source-badge source-sponsored">被赞助</span>
+          <div style="font-size:12px; color:#6b7280; text-align:right;">来自 云端梦工厂</div>
+          <div class="btn-actions">
+            <button class="btn-download">⬇ 下载</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Item 4 -->
+      <div class="asset-card">
+        <div class="asset-thumb thumb-amber">🏯</div>
+        <div class="asset-info">
+          <div class="asset-name">古风庭院·场景包</div>
+          <div class="asset-meta">
+            <span>🖌️ 墨韵工坊</span>
+            <span>📅 2025-11-18</span>
+            <span>💰 388 积分</span>
+          </div>
+          <div class="asset-tags">
+            <span class="tag tag-scene">场景</span>
+            <span class="tag tag-category">古风</span>
+          </div>
+        </div>
+        <div class="asset-right">
+          <span class="source-badge source-own">自购</span>
+          <div class="btn-actions">
+            <button class="btn-download">⬇ 下载</button>
+            <button class="btn-transfer">转让</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Item 5 -->
+      <div class="asset-card" style="opacity: 0.7;">
+        <div class="asset-thumb thumb-rose">⚔️</div>
+        <div class="asset-info">
+          <div class="asset-name" style="color:#6b7280;">少女战记·立绘·碧海</div>
+          <div class="asset-meta">
+            <span>🖌️ 星辰绘影</span>
+            <span>📅 2025-10-30</span>
+            <span>💰 168 积分</span>
+          </div>
+          <div class="asset-tags">
+            <span class="tag tag-category">立绘</span>
+          </div>
+        </div>
+        <div class="asset-right">
+          <span class="source-badge source-transferred">已转出</span>
+          <div style="font-size:12px; color:#9ca3af; text-align:right;">转让给 梦影工坊</div>
+          <div class="badge-out">已转出</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

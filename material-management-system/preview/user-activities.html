@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>账户动态 · 诸城叙梦素材管理平台</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: #f5f3ff;
+      color: #1f2937;
+    }
+    .preview-banner {
+      background: #fbbf24;
+      padding: 8px 16px;
+      text-align: center;
+      font-size: 13px;
+      color: #78350f;
+      font-weight: 500;
+      position: sticky;
+      top: 0;
+      z-index: 9999;
+    }
+    .preview-banner a { color: #92400e; font-weight: 700; text-decoration: underline; }
+
+    .navbar {
+      background: #1e1b4b;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      height: 60px;
+      position: sticky;
+      top: 37px;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .nav-brand {
+      font-size: 18px; font-weight: 800; color: white;
+      text-decoration: none; margin-right: 32px;
+      display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+    }
+    .nav-links { display: flex; align-items: center; gap: 2px; flex: 1; }
+    .nav-link {
+      padding: 8px 14px; font-size: 14px; color: #a5b4fc;
+      text-decoration: none; border-radius: 6px; transition: all 0.2s;
+    }
+    .nav-link:hover { color: white; background: rgba(255,255,255,0.08); }
+    .nav-link.active { color: white; background: rgba(124,58,237,0.5); font-weight: 600; }
+    .nav-right { display: flex; align-items: center; gap: 12px; }
+    .vip-badge {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: white; font-size: 12px; font-weight: 700;
+      padding: 4px 10px; border-radius: 20px;
+    }
+    .user-name { font-size: 14px; color: #e0e7ff; font-weight: 500; }
+    .btn-logout {
+      padding: 6px 14px; border: 1px solid rgba(255,255,255,0.25);
+      background: transparent; color: #a5b4fc; border-radius: 6px;
+      font-size: 13px; cursor: pointer;
+    }
+    .btn-logout:hover { background: rgba(255,255,255,0.1); color: white; }
+
+    .main { max-width: 900px; margin: 0 auto; padding: 32px 24px; }
+
+    .page-header { margin-bottom: 24px; }
+    .page-title { font-size: 22px; font-weight: 800; color: #1f2937; }
+    .page-sub { font-size: 13px; color: #6b7280; margin-top: 4px; }
+
+    /* Summary Cards */
+    .summary-cards {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+    .summary-card {
+      background: white;
+      border-radius: 10px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      border: 1px solid #e5e7eb;
+      border-left: 4px solid;
+    }
+    .summary-card.purple { border-left-color: #7c3aed; }
+    .summary-card.green { border-left-color: #16a34a; }
+    .summary-card.red { border-left-color: #dc2626; }
+    .summary-card.blue { border-left-color: #3b82f6; }
+    .summary-label { font-size: 12px; color: #6b7280; margin-bottom: 6px; }
+    .summary-value { font-size: 22px; font-weight: 800; }
+    .summary-card.purple .summary-value { color: #7c3aed; }
+    .summary-card.green .summary-value { color: #16a34a; }
+    .summary-card.red .summary-value { color: #dc2626; }
+    .summary-card.blue .summary-value { color: #3b82f6; }
+
+    /* Filter Bar */
+    .filter-bar {
+      background: white;
+      border-radius: 10px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      border: 1px solid #e5e7eb;
+      flex-wrap: wrap;
+    }
+    .filter-label { font-size: 13px; font-weight: 600; color: #374151; }
+    .filter-select, .filter-input {
+      padding: 7px 11px; border: 1.5px solid #e5e7eb;
+      border-radius: 7px; font-size: 13px; color: #1f2937; background: #fafafa; outline: none;
+    }
+    .filter-select:focus, .filter-input:focus { border-color: #7c3aed; }
+    .filter-input { width: 140px; }
+    .btn-filter {
+      padding: 7px 16px; background: #7c3aed; color: white;
+      border: none; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .btn-filter:hover { background: #6d28d9; }
+
+    /* Activity List */
+    .activity-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+
+    .activity-item {
+      background: white;
+      border-radius: 10px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      border: 1px solid #e5e7eb;
+      border-left: 4px solid;
+      transition: box-shadow 0.2s;
+    }
+    .activity-item:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .activity-item.type-purchase { border-left-color: #7c3aed; }
+    .activity-item.type-sponsor-out { border-left-color: #7c3aed; }
+    .activity-item.type-sponsor-in { border-left-color: #16a34a; }
+    .activity-item.type-transfer-out { border-left-color: #dc2626; }
+    .activity-item.type-transfer-in { border-left-color: #16a34a; }
+
+    .activity-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+    .icon-purple { background: #ede9fe; }
+    .icon-green { background: #dcfce7; }
+    .icon-red { background: #fee2e2; }
+    .icon-blue { background: #dbeafe; }
+
+    .activity-content { flex: 1; min-width: 0; }
+    .activity-title { font-size: 14px; font-weight: 700; color: #1f2937; margin-bottom: 4px; }
+    .activity-item-name { font-size: 13px; color: #6b7280; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .activity-sub { font-size: 12px; color: #9ca3af; display: flex; align-items: center; gap: 10px; }
+
+    .activity-amount {
+      font-size: 16px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .amount-positive { color: #16a34a; }
+    .amount-neutral { color: #9ca3af; }
+    .amount-negative { color: #dc2626; }
+
+    .activity-type-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+    .badge-purchase { background: #ede9fe; color: #6d28d9; }
+    .badge-sponsor { background: #dcfce7; color: #15803d; }
+    .badge-transfer { background: #fee2e2; color: #b91c1c; }
+    .badge-receive { background: #dbeafe; color: #1d4ed8; }
+
+    /* Pagination */
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .page-btn {
+      padding: 7px 13px;
+      border: 1.5px solid #e5e7eb;
+      background: white;
+      color: #374151;
+      border-radius: 7px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .page-btn:hover { border-color: #7c3aed; color: #7c3aed; }
+    .page-btn.active { background: #7c3aed; border-color: #7c3aed; color: white; font-weight: 700; }
+    .page-btn.disabled { opacity: 0.4; cursor: not-allowed; }
+    .page-info { font-size: 13px; color: #6b7280; margin: 0 8px; }
+  </style>
+</head>
+<body>
+  <div class="preview-banner">
+    👀 预览模式 — 仅供设计审阅使用，数据均为模拟数据 &nbsp;|&nbsp;
+    <a href="index.html">← 预览首页</a>
+  </div>
+
+  <nav class="navbar">
+    <a href="#" class="nav-brand">📦 诸城叙梦</a>
+    <div class="nav-links">
+      <a href="user-assets.html" class="nav-link">我的素材</a>
+      <a href="user-activities.html" class="nav-link active">账户动态</a>
+      <a href="user-shop.html" class="nav-link">店铺授权</a>
+      <a href="user-vip.html" class="nav-link">VIP 权益</a>
+      <a href="user-help.html" class="nav-link">我的帮助</a>
+    </div>
+    <div class="nav-right">
+      <span class="user-name">花小绘</span>
+      <span class="vip-badge">⭐ VIP3</span>
+      <button class="btn-logout">退出登录</button>
+    </div>
+  </nav>
+
+  <div class="main">
+    <div class="page-header">
+      <div class="page-title">账户动态</div>
+      <div class="page-sub">查看您的积分变动、素材购买与转让记录</div>
+    </div>
+
+    <div class="summary-cards">
+      <div class="summary-card purple">
+        <div class="summary-label">累计获得积分</div>
+        <div class="summary-value">+5,688</div>
+      </div>
+      <div class="summary-card green">
+        <div class="summary-label">获赠积分</div>
+        <div class="summary-value">+456</div>
+      </div>
+      <div class="summary-card red">
+        <div class="summary-label">转出次数</div>
+        <div class="summary-value">1 次</div>
+      </div>
+      <div class="summary-card blue">
+        <div class="summary-label">本月交易</div>
+        <div class="summary-value">3 笔</div>
+      </div>
+    </div>
+
+    <!-- Filter -->
+    <div class="filter-bar">
+      <span class="filter-label">筛选</span>
+      <select class="filter-select">
+        <option>全部类型</option>
+        <option>自购</option>
+        <option>赞助他人</option>
+        <option>被赞助</option>
+        <option>转出</option>
+        <option>转入</option>
+      </select>
+      <input type="date" class="filter-input" value="2026-02-01" />
+      <span style="font-size:13px; color:#9ca3af;">至</span>
+      <input type="date" class="filter-input" value="2026-03-16" />
+      <button class="btn-filter">🔍 筛选</button>
+    </div>
+
+    <!-- Activity List -->
+    <div class="activity-list">
+
+      <!-- 1. Purchase -->
+      <div class="activity-item type-purchase">
+        <div class="activity-icon icon-purple">🛒</div>
+        <div class="activity-content">
+          <div class="activity-title">购买素材 <span class="activity-type-badge badge-purchase">自购</span></div>
+          <div class="activity-item-name">花之物语·春季背景 — 桃枝画坊</div>
+          <div class="activity-sub">
+            <span>📅 2026-03-10</span>
+            <span>订单 #ORD20260310001</span>
+          </div>
+        </div>
+        <div class="activity-amount amount-positive">+188 pts</div>
+      </div>
+
+      <!-- 2. Purchase -->
+      <div class="activity-item type-purchase">
+        <div class="activity-icon icon-purple">🛒</div>
+        <div class="activity-content">
+          <div class="activity-title">购买素材 <span class="activity-type-badge badge-purchase">自购</span></div>
+          <div class="activity-item-name">繁星酒馆·夜间 BGM — 幽蓝音效</div>
+          <div class="activity-sub">
+            <span>📅 2026-02-28</span>
+            <span>订单 #ORD20260228003</span>
+          </div>
+        </div>
+        <div class="activity-amount amount-positive">+88 pts</div>
+      </div>
+
+      <!-- 3. Sponsor out -->
+      <div class="activity-item type-sponsor-out">
+        <div class="activity-icon icon-purple">🎁</div>
+        <div class="activity-content">
+          <div class="activity-title">赞助好友 <span class="activity-type-badge badge-purchase" style="background:#fce7f3; color:#be185d;">赞助他人</span></div>
+          <div class="activity-item-name">霓虹都市·通用CG — 赞助给 云端梦工厂</div>
+          <div class="activity-sub">
+            <span>📅 2026-02-20</span>
+            <span>赞助 #SPN20260220007</span>
+          </div>
+        </div>
+        <div class="activity-amount amount-positive">+288 pts</div>
+      </div>
+
+      <!-- 4. Sponsored receive -->
+      <div class="activity-item type-sponsor-in">
+        <div class="activity-icon icon-green">🎀</div>
+        <div class="activity-content">
+          <div class="activity-title">收到赞助 <span class="activity-type-badge badge-sponsor">被赞助</span></div>
+          <div class="activity-item-name">来自 月光工作室 的赞助礼物</div>
+          <div class="activity-sub">
+            <span>📅 2026-02-14</span>
+            <span>情人节特别活动</span>
+          </div>
+        </div>
+        <div class="activity-amount amount-neutral">0 pts</div>
+      </div>
+
+      <!-- 5. Purchase -->
+      <div class="activity-item type-purchase">
+        <div class="activity-icon icon-purple">🛒</div>
+        <div class="activity-content">
+          <div class="activity-title">购买素材 <span class="activity-type-badge badge-purchase">自购</span></div>
+          <div class="activity-item-name">古风庭院·场景包 — 墨韵工坊</div>
+          <div class="activity-sub">
+            <span>📅 2026-01-30</span>
+            <span>订单 #ORD20260130012</span>
+          </div>
+        </div>
+        <div class="activity-amount amount-positive">+388 pts</div>
+      </div>
+
+      <!-- 6. Transfer out -->
+      <div class="activity-item type-transfer-out">
+        <div class="activity-icon icon-red">➡️</div>
+        <div class="activity-content">
+          <div class="activity-title">转让素材 <span class="activity-type-badge badge-transfer">转出</span></div>
+          <div class="activity-item-name">少女战记·立绘·碧海 — 转让给 梦影工坊</div>
+          <div class="activity-sub">
+            <span>📅 2026-01-15</span>
+            <span>转让 #TRF20260115002</span>
+          </div>
+        </div>
+        <div class="activity-amount amount-neutral">— pts</div>
+      </div>
+
+      <!-- 7. Transfer in -->
+      <div class="activity-item type-transfer-in">
+        <div class="activity-icon icon-green">⬅️</div>
+        <div class="activity-content">
+          <div class="activity-title">接收转让 <span class="activity-type-badge badge-receive">转入</span></div>
+          <div class="activity-item-name">星空漫游·立绘集 — 来自 星辰绘馆</div>
+          <div class="activity-sub">
+            <span>📅 2025-12-22</span>
+            <span>转让 #TRF20251222009</span>
+          </div>
+        </div>
+        <div class="activity-amount amount-positive">+168 pts</div>
+      </div>
+
+      <!-- 8. Purchase -->
+      <div class="activity-item type-purchase">
+        <div class="activity-icon icon-purple">🛒</div>
+        <div class="activity-content">
+          <div class="activity-title">购买素材 <span class="activity-type-badge badge-purchase">自购</span></div>
+          <div class="activity-item-name">梦幻仙境·角色CG — 幽蓝笔记</div>
+          <div class="activity-sub">
+            <span>📅 2025-12-05</span>
+            <span>订单 #ORD20251205018</span>
+          </div>
+        </div>
+        <div class="activity-amount amount-positive">+256 pts</div>
+      </div>
+
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination">
+      <button class="page-btn disabled">&#8249; 上一页</button>
+      <button class="page-btn active">1</button>
+      <button class="page-btn">2</button>
+      <button class="page-btn">3</button>
+      <span class="page-info">共 24 条记录</span>
+      <button class="page-btn">下一页 &#8250;</button>
+    </div>
+  </div>
+</body>
+</html>

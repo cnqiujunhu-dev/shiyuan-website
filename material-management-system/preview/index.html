@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>设计预览 · 诸城叙梦素材管理平台</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f5f3ff; color: #1f2937; }
+
+    /* Preview Banner */
+    .preview-banner {
+      background: #fbbf24;
+      padding: 8px 16px;
+      text-align: center;
+      font-size: 13px;
+      color: #78350f;
+      font-weight: 500;
+      position: sticky;
+      top: 0;
+      z-index: 999;
+    }
+    .preview-banner a { color: #92400e; font-weight: 700; text-decoration: underline; }
+
+    /* Hero */
+    .hero {
+      background: linear-gradient(135deg, #1e1b4b 0%, #3730a3 50%, #7c3aed 100%);
+      padding: 60px 24px 50px;
+      text-align: center;
+      color: white;
+    }
+    .hero-icon { font-size: 48px; margin-bottom: 16px; }
+    .hero h1 { font-size: 36px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 8px; }
+    .hero p { font-size: 16px; opacity: 0.85; margin-bottom: 4px; }
+    .hero-meta { font-size: 13px; opacity: 0.6; margin-top: 12px; }
+    .hero-badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 12px;
+      margin-top: 12px;
+      backdrop-filter: blur(4px);
+    }
+
+    /* Container */
+    .container { max-width: 1100px; margin: 0 auto; padding: 40px 24px; }
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #7c3aed;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #ede9fe;
+    }
+
+    /* Grid */
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; margin-bottom: 48px; }
+
+    /* Card */
+    .card {
+      background: #ffffff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      border: 1px solid #e5e7eb;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(124,58,237,0.15); }
+    .card-thumb {
+      height: 140px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 48px;
+      position: relative;
+      overflow: hidden;
+    }
+    .card-thumb-user { background: linear-gradient(135deg, #ede9fe, #ddd6fe); }
+    .card-thumb-admin { background: linear-gradient(135deg, #1e1b4b, #3730a3); }
+    .card-thumb-login { background: linear-gradient(135deg, #1e1b4b 0%, #3730a3 50%, #7c3aed 100%); }
+    .card-body { padding: 18px; flex: 1; }
+    .card-tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+    }
+    .tag-user { background: #ede9fe; color: #7c3aed; }
+    .tag-admin { background: #1e1b4b; color: #a5b4fc; }
+    .tag-auth { background: #fef3c7; color: #92400e; }
+    .card-title { font-size: 16px; font-weight: 700; color: #1f2937; margin-bottom: 6px; }
+    .card-desc { font-size: 13px; color: #6b7280; line-height: 1.5; }
+    .card-footer {
+      padding: 12px 18px;
+      border-top: 1px solid #f3f4f6;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .card-link {
+      font-size: 13px;
+      color: #7c3aed;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .card-file { font-size: 12px; color: #9ca3af; font-family: monospace; }
+
+    /* Stats bar */
+    .stats-bar {
+      display: flex;
+      gap: 24px;
+      background: white;
+      border-radius: 12px;
+      padding: 20px 28px;
+      margin-bottom: 40px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      border: 1px solid #e5e7eb;
+      flex-wrap: wrap;
+    }
+    .stat-item { text-align: center; }
+    .stat-number { font-size: 28px; font-weight: 800; color: #7c3aed; }
+    .stat-label { font-size: 12px; color: #6b7280; margin-top: 2px; }
+
+    /* Footer */
+    .footer { text-align: center; padding: 32px; font-size: 13px; color: #9ca3af; }
+    .footer strong { color: #7c3aed; }
+  </style>
+</head>
+<body>
+  <div class="preview-banner">
+    👀 预览模式 — 仅供设计审阅使用，数据均为模拟数据 &nbsp;|&nbsp; 当前页面：<strong>预览首页</strong>
+  </div>
+
+  <div class="hero">
+    <div class="hero-icon">📦</div>
+    <h1>诸城叙梦 · 设计预览</h1>
+    <p>素材管理平台 UI 设计稿静态预览</p>
+    <p style="opacity:0.7; font-size:14px;">Material Management System — Designer Review Hub</p>
+    <div class="hero-badge">🎨 共 12 个页面预览</div>
+  </div>
+
+  <div class="container">
+    <div class="stats-bar">
+      <div class="stat-item">
+        <div class="stat-number">12</div>
+        <div class="stat-label">预览页面</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-number">8</div>
+        <div class="stat-label">用户端页面</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-number">4</div>
+        <div class="stat-label">管理端页面</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-number" style="color:#16a34a">100%</div>
+        <div class="stat-label">静态独立</div>
+      </div>
+      <div style="margin-left:auto; display:flex; align-items:center; gap:8px; font-size:13px; color:#6b7280;">
+        <span>主色调</span>
+        <span style="display:inline-block; width:20px; height:20px; background:#7c3aed; border-radius:4px;"></span>
+        <span style="display:inline-block; width:20px; height:20px; background:#1e1b4b; border-radius:4px;"></span>
+        <span style="display:inline-block; width:20px; height:20px; background:#f5f3ff; border-radius:4px; border:1px solid #e5e7eb;"></span>
+      </div>
+    </div>
+
+    <!-- Auth Pages -->
+    <div class="section-title">🔐 认证页面</div>
+    <div class="grid">
+      <a href="user-login.html" class="card">
+        <div class="card-thumb card-thumb-login">🔑</div>
+        <div class="card-body">
+          <span class="card-tag tag-auth">认证</span>
+          <div class="card-title">用户登录</div>
+          <div class="card-desc">用户端登录页，紫色渐变背景，居中白色卡片，用户名密码表单。</div>
+        </div>
+        <div class="card-footer">
+          <span class="card-link">查看预览 →</span>
+          <span class="card-file">user-login.html</span>
+        </div>
+      </a>
+      <a href="user-register.html" class="card">
+        <div class="card-thumb card-thumb-login">📝</div>
+        <div class="card-body">
+          <span class="card-tag tag-auth">认证</span>
+          <div class="card-title">用户注册</div>
+          <div class="card-desc">新用户注册页，包含平台选择（易次元/橙光/闪艺）、QQ号等字段。</div>
+        </div>
+        <div class="card-footer">
+          <span class="card-link">查看预览 →</span>
+          <span class="card-file">user-register.html</span>
+        </div>
+      </a>
+      <a href="admin-login.html" class="card">
+        <div class="card-thumb card-thumb-admin">🛡️</div>
+        <div class="card-body">
+          <span class="card-tag tag-admin">管理端</span>
+          <div class="card-title">管理员登录</div>
+          <div class="card-desc">后台管理登录页，深色渐变主题，仅授权管理员可访问提示。</div>
+        </div>
+        <div class="card-footer">
+          <span class="card-link">查看预览 →</span>
+          <span class="card-file">admin-login.html</span>
+        </div>
+      </a>
+    </div>
+
+    <!-- User Pages -->
+    <div class="section-title">👤 用户端页面</div>
+    <div class="grid">
+      <a href="user-assets.html" class="card">
+        <div class="card-thumb card-thumb-user">📂</div>
+        <div class="card-body">
+          <span class="card-tag tag-user">用户端</span>
+          <div class="card-title">我的素材</div>
+          <div class="card-desc">用户素材列表主页，含统计卡片、筛选栏、素材列表（自购/被赞助/已转出）。</div>
+        </div>
+        <div class="card-footer">
+          <span class="card-link">查看预览 →</span>
+          <span class="card-file">user-assets.html</span>
+        </div>
+      </a>
+      <a href="user-activities.html" class="card">
+        <div class="card-thumb card-thumb-user">📋</div>
+        <div class="card-body">
+          <span class="card-tag tag-user">用户端</span>
+          <div class="card-title">账户动态</div>
+          <div class="card-desc">积分与交易历史记录，彩色左边框区分操作类型，含分页。</div>
+        </div>
+        <div class="card-footer">
+          <span class="card-link">查看预览 →</span>
+          <span class="card-file">user-activities.html</span>
+        </div>
+      </a>
+      <a href="user-vip.html" class="card">
+        <div class="card-thumb card-thumb-user">⭐</div>
+        <div class="card-body">
+          <span class="card-tag tag-user">用户端</span>
+          <div class="card-title">VIP 权益</div>
+          <div class="card-desc">VIP等级展示，当前等级卡片、升级进度条、等级对比表格。</div>
+        </div>
+        <div class="card-footer">
+          <span class="card-link">查看预览 →</span>
+          <span class="card-file">user-vip.html</span>
+        </div>
+      </a>
+      <a href="user-shop.html" class="card">
+        <div class="card-thumb card-thumb-user">🛍️</div>
+        <div class="card-body">
+          <span class="card-tag tag-user">用户端</span>
+          <div class="card-title">店铺授权</div>
+          <div class="card-desc">商品展示网格页，4列卡片布局，每张含封面、价格、赞助按钮。</div>
+        </div>
+        <div class="card-footer">
+          <span class="card-link">查看预览 →</span>
+          <span class="card-file">user-shop.html</span>
+        </div>
+      </a>
+      <a href="user-help.html" class="card">
+        <div class="card-thumb card-thumb-user">🙋</div>
+        <div class="card-body">
+          <span class="card-tag tag-user">用户端</span>
+          <div class="card-title">我的帮助</div>
+          <div class="card-desc">平台变更申请、自印报备、账户设置三个标签页，含申请历史表格。</div>
+        </div>
+        <div class="card-footer">
+          <span class="card-link">查看预览 →</span>
+          <span class="card-file">user-help.html</span>
+        </div>
+      </a>
+    </div>
+
+    <!-- Admin Pages -->
+    <div class="section-title">🛡️ 管理端页面</div>
+    <div class="grid">
+      <a href="admin-dashboard.html" class="card">
+        <div class="card-thumb card-thumb-admin">📊</div>
+        <div class="card-body">
+          <span class="card-tag tag-admin">管理端</span>
+          <div class="card-title">仪表盘</div>
+          <div class="card-desc">管理后台首页，左侧导航栏，统计卡片，快捷操作链接网格。</div>
+        </div>
+        <div class="card-footer">
+          <span class="card-link">查看预览 →</span>
+          <span class="card-file">admin-dashboard.html</span>
+        </div>
+      </a>
+      <a href="admin-items.html" class="card">
+        <div class="card-thumb card-thumb-admin">🗂️</div>
+        <div class="card-body">
+          <span class="card-tag tag-admin">管理端</span>
+          <div class="card-title">商品列表</div>
+          <div class="card-desc">素材商品管理表格，含搜索筛选、上架状态徽章、编辑操作按钮。</div>
+        </div>
+        <div class="card-footer">
+          <span class="card-link">查看预览 →</span>
+          <span class="card-file">admin-items.html</span>
+        </div>
+      </a>
+      <a href="admin-applications.html" class="card">
+        <div class="card-thumb card-thumb-admin">✅</div>
+        <div class="card-body">
+          <span class="card-tag tag-admin">管理端</span>
+          <div class="card-title">审核中心</div>
+          <div class="card-desc">平台变更申请审核，标签页切换，待审核黄色徽章，通过/拒绝按钮。</div>
+        </div>
+        <div class="card-footer">
+          <span class="card-link">查看预览 →</span>
+          <span class="card-file">admin-applications.html</span>
+        </div>
+      </a>
+      <a href="admin-vip.html" class="card">
+        <div class="card-thumb card-thumb-admin">👑</div>
+        <div class="card-body">
+          <span class="card-tag tag-admin">管理端</span>
+          <div class="card-title">VIP 顾客</div>
+          <div class="card-desc">VIP用户管理表格，含等级徽章颜色区分、积分、年度次数、编辑操作。</div>
+        </div>
+        <div class="card-footer">
+          <span class="card-link">查看预览 →</span>
+          <span class="card-file">admin-vip.html</span>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <div class="footer">
+    <strong>诸城叙梦素材管理平台</strong> · 设计预览 · 2026<br>
+    <span style="font-size:12px;">所有数据均为模拟数据，仅供设计审阅使用</span>
+  </div>
+</body>
+</html>

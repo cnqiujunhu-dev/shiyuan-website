@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>管理后台登录 · 诸城叙梦素材管理平台</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .preview-banner {
+      background: #fbbf24; padding: 8px 16px; text-align: center;
+      font-size: 13px; color: #78350f; font-weight: 500;
+      position: sticky; top: 0; z-index: 999; flex-shrink: 0;
+    }
+    .preview-banner a { color: #92400e; font-weight: 700; text-decoration: underline; }
+
+    .page {
+      flex: 1;
+      background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Decorative grid pattern */
+    .page::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+    .page::after {
+      content: '';
+      position: absolute;
+      width: 500px; height: 500px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(124,58,237,0.2) 0%, transparent 70%);
+      top: -100px; right: -100px;
+    }
+
+    /* Floating badge */
+    .security-badge {
+      position: absolute;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: rgba(255,255,255,0.6);
+      padding: 8px 20px;
+      border-radius: 20px;
+      font-size: 12px;
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      z-index: 1;
+    }
+    .security-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #4ade80;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* Card */
+    .card {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 44px 40px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05);
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Logo */
+    .logo { text-align: center; margin-bottom: 28px; }
+    .logo-shield {
+      width: 72px; height: 72px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #1e1b4b, #4c1d95);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 36px;
+      margin: 0 auto 14px;
+      box-shadow: 0 4px 16px rgba(76,29,149,0.4);
+    }
+    .logo-text { font-size: 20px; font-weight: 800; color: #1e1b4b; }
+    .logo-sub { font-size: 12px; color: #9ca3af; margin-top: 4px; letter-spacing: 0.5px; }
+
+    /* Divider */
+    .divider { height: 1px; background: #e5e7eb; margin: 0 -40px 24px; }
+
+    /* Title */
+    .title { font-size: 22px; font-weight: 700; color: #1f2937; margin-bottom: 4px; }
+    .subtitle { font-size: 13px; color: #6b7280; margin-bottom: 24px; }
+
+    /* Warning box */
+    .warning-box {
+      background: #fef3c7;
+      border: 1px solid #fde68a;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: #92400e;
+      margin-bottom: 22px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Form */
+    .form-group { margin-bottom: 18px; }
+    .form-label {
+      display: block; font-size: 13px; font-weight: 600;
+      color: #374151; margin-bottom: 6px;
+    }
+    .input-wrap { position: relative; }
+    .input-icon {
+      position: absolute; left: 12px; top: 50%;
+      transform: translateY(-50%); font-size: 16px; pointer-events: none;
+    }
+    .form-input {
+      width: 100%;
+      padding: 11px 14px 11px 38px;
+      border: 1.5px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 14px;
+      color: #1f2937;
+      background: #fafafa;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .form-input:focus {
+      border-color: #4c1d95;
+      box-shadow: 0 0 0 3px rgba(76,29,149,0.12);
+      background: white;
+    }
+
+    /* Button */
+    .btn {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, #1e1b4b, #4c1d95);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      margin-top: 8px;
+      letter-spacing: 0.5px;
+    }
+    .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+
+    /* Note */
+    .note {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 12px;
+      color: #9ca3af;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+    }
+
+    /* User login link */
+    .user-link {
+      text-align: center;
+      margin-top: 14px;
+      font-size: 13px;
+    }
+    .user-link a { color: #6d28d9; text-decoration: none; font-weight: 500; }
+    .user-link a:hover { text-decoration: underline; }
+
+    /* 2FA hint */
+    .twofa-hint {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #f3f4f6;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 20px;
+    }
+    .twofa-icon { font-size: 20px; }
+    .twofa-text { font-size: 12px; color: #6b7280; line-height: 1.5; }
+    .twofa-code {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .twofa-digit {
+      width: 36px; height: 44px;
+      border: 1.5px solid #e5e7eb;
+      border-radius: 7px;
+      background: white;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+      font-weight: 800;
+      color: #1e1b4b;
+    }
+    .twofa-digit.active { border-color: #4c1d95; box-shadow: 0 0 0 3px rgba(76,29,149,0.12); }
+    .twofa-digit.empty { color: #d1d5db; }
+  </style>
+</head>
+<body>
+  <div class="preview-banner">
+    👀 预览模式 — 仅供设计审阅使用，数据均为模拟数据 &nbsp;|&nbsp;
+    <a href="index.html">← 预览首页</a>
+  </div>
+
+  <div class="page">
+    <div class="card">
+      <div class="logo">
+        <div class="logo-shield">🛡️</div>
+        <div class="logo-text">诸城叙梦</div>
+        <div class="logo-sub">ADMIN PORTAL · 管理后台</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="title">管理后台</div>
+      <div class="subtitle">请输入管理员凭证进行身份验证</div>
+
+      <div class="warning-box">
+        ⚠️ 仅限授权管理员访问，所有登录操作均已记录
+      </div>
+
+      <form>
+        <div class="form-group">
+          <label class="form-label">管理员账号</label>
+          <div class="input-wrap">
+            <span class="input-icon">👤</span>
+            <input type="text" class="form-input" value="admin" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">密码</label>
+          <div class="input-wrap">
+            <span class="input-icon">🔐</span>
+            <input type="password" class="form-input" value="admin888" />
+          </div>
+        </div>
+
+        <!-- Simulated 2FA -->
+        <div class="twofa-hint">
+          <div class="twofa-icon">📱</div>
+          <div>
+            <div class="twofa-text" style="font-weight:600; color:#374151;">双因素验证码</div>
+            <div class="twofa-code">
+              <div class="twofa-digit">8</div>
+              <div class="twofa-digit active">4</div>
+              <div class="twofa-digit empty">—</div>
+              <div class="twofa-digit empty">—</div>
+              <div class="twofa-digit empty">—</div>
+              <div class="twofa-digit empty">—</div>
+            </div>
+          </div>
+        </div>
+
+        <button type="button" class="btn">🔐 安全登录</button>
+      </form>
+
+      <div class="note">
+        <span>🔒</span> SSL 加密传输 · 端对端安全
+      </div>
+      <div class="user-link">
+        <a href="user-login.html">← 返回用户登录页</a>
+      </div>
+    </div>
+
+    <div class="security-badge">
+      <div class="security-dot"></div>
+      系统安全运行中 · 最近登录 2026-03-15 09:42
+    </div>
+  </div>
+</body>
+</html>
