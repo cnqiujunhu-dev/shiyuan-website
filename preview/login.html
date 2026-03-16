@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>素材管理系统 - 登录</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- 预览提示条 -->
+<div class="preview-bar">
+  <strong>🎨 设计预览模式</strong> — 仅供美工参考
+  <nav class="preview-nav">
+    <a href="index.html">素材库</a>
+    <a href="upload.html">上传</a>
+    <a href="login.html" class="cur">登录</a>
+    <a href="register.html">注册</a>
+  </nav>
+</div>
+
+<!-- 导航栏 -->
+<nav class="nav">
+  <a href="index.html" class="nav-brand">📦 素材管理系统</a>
+  <a href="login.html" class="nav-link active">登录</a>
+  <a href="register.html" class="nav-link">注册</a>
+</nav>
+
+<!-- 登录表单 -->
+<div class="form-page">
+  <div class="form-container">
+    <h2 class="form-title">欢迎回来</h2>
+    <p class="form-subtitle">登录您的素材管理账户</p>
+
+    <!-- 错误提示（示例） -->
+    <!-- <div class="form-error">用户名或密码不正确</div> -->
+
+    <form onsubmit="handleLogin(event)">
+      <div class="form-group">
+        <label class="form-label">用户名或邮箱</label>
+        <input
+          class="form-input"
+          type="text"
+          placeholder="请输入用户名或邮箱"
+          value="admin"
+        />
+      </div>
+      <div class="form-group">
+        <label class="form-label">密码</label>
+        <input
+          class="form-input"
+          type="password"
+          placeholder="请输入密码"
+          value="••••••••"
+        />
+      </div>
+      <button type="submit" class="btn btn-primary form-submit" id="loginBtn">
+        登录
+      </button>
+    </form>
+    <p class="form-link">还没有账户？<a href="register.html">立即注册</a></p>
+  </div>
+</div>
+
+<!-- 状态预览区 -->
+<div style="padding:32px 40px; background:#f8fafc; border-top:1px solid #e2e8f0;">
+  <p style="font-size:12px;color:#94a3b8;text-align:center;margin-bottom:20px;">— 以下为各状态展示，供参考 —</p>
+  <div style="display:flex;gap:24px;justify-content:center;flex-wrap:wrap;">
+
+    <!-- 错误状态 -->
+    <div style="width:360px;">
+      <p style="font-size:12px;color:#64748b;margin-bottom:8px;font-weight:600;">❌ 错误状态</p>
+      <div class="form-container" style="margin:0;padding:28px;">
+        <div class="form-error">用户名或密码不正确</div>
+        <div class="form-group" style="margin-bottom:12px">
+          <label class="form-label">用户名或邮箱</label>
+          <input class="form-input" type="text" value="wronguser" style="border-color:#ef4444;" />
+        </div>
+        <div class="form-group" style="margin-bottom:12px">
+          <label class="form-label">密码</label>
+          <input class="form-input" type="password" value="••••••" style="border-color:#ef4444;" />
+        </div>
+        <button class="btn btn-primary form-submit" disabled>登录</button>
+      </div>
+    </div>
+
+    <!-- 加载状态 -->
+    <div style="width:360px;">
+      <p style="font-size:12px;color:#64748b;margin-bottom:8px;font-weight:600;">⏳ 加载中状态</p>
+      <div class="form-container" style="margin:0;padding:28px;">
+        <div class="form-group" style="margin-bottom:12px">
+          <label class="form-label">用户名或邮箱</label>
+          <input class="form-input" type="text" value="admin" />
+        </div>
+        <div class="form-group" style="margin-bottom:12px">
+          <label class="form-label">密码</label>
+          <input class="form-input" type="password" value="••••••••" />
+        </div>
+        <button class="btn btn-primary form-submit" disabled style="opacity:.7">登录中...</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  function handleLogin(e) {
+    e.preventDefault();
+    const btn = document.getElementById('loginBtn');
+    btn.disabled = true;
+    btn.textContent = '登录中...';
+    setTimeout(() => {
+      window.location.href = 'index.html';
+    }, 1200);
+  }
+</script>
+</body>
+</html>

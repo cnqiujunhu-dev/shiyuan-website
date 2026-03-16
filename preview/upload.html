@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>素材管理系统 - 上传素材</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- 预览提示条 -->
+<div class="preview-bar">
+  <strong>🎨 设计预览模式</strong> — 仅供美工参考
+  <nav class="preview-nav">
+    <a href="index.html">素材库</a>
+    <a href="upload.html" class="cur">上传</a>
+    <a href="login.html">登录</a>
+    <a href="register.html">注册</a>
+  </nav>
+</div>
+
+<!-- 导航栏 -->
+<nav class="nav">
+  <a href="index.html" class="nav-brand">📦 素材管理系统</a>
+  <a href="index.html" class="nav-link">素材库</a>
+  <a href="upload.html" class="nav-link active">上传</a>
+  <button class="btn-logout">退出登录</button>
+</nav>
+
+<!-- 主区域：两列并排，左=空状态，右=已选文件状态 -->
+<div style="max-width:1160px;margin:0 auto;padding:36px 28px;">
+
+  <div style="display:flex;gap:28px;flex-wrap:wrap;justify-content:center;">
+
+    <!-- 左：未选文件（默认状态） -->
+    <div style="flex:1;min-width:300px;max-width:520px;">
+      <p style="font-size:12px;color:#64748b;margin-bottom:10px;font-weight:600;text-align:center">
+        📂 默认状态（未选择文件）
+      </p>
+      <div class="upload-container" style="margin:0">
+        <h2 class="form-title">上传素材</h2>
+        <p class="form-subtitle">支持图片、视频、音频、文档等格式，单文件最大 100MB</p>
+
+        <div class="upload-zone" id="zone1"
+          onclick="document.getElementById('fi1').click()"
+          ondragover="event.preventDefault();this.classList.add('active')"
+          ondragleave="this.classList.remove('active')"
+          ondrop="handleDrop(event,'fi1','zone1','selected1')">
+          <input type="file" id="fi1" style="display:none" onchange="handleFile(this,'selected1')" />
+          <div class="upload-zone-icon">☁️</div>
+          <div class="upload-zone-text">点击选择文件，或拖拽到此处</div>
+          <div class="upload-zone-hint">图片 / 视频 / 音频 / PDF / 文档 / ZIP</div>
+        </div>
+
+        <div id="selected1" style="display:none" class="selected-file">
+          📄 <span id="fname1"></span>
+          <span class="selected-file-size" id="fsize1"></span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">描述</label>
+          <input class="form-input" type="text" placeholder="为这个素材添加描述（可选）" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">标签</label>
+          <input class="form-input" type="text" placeholder="多个标签用逗号分隔，如：设计,UI,图标" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">分类</label>
+          <input class="form-input" type="text" placeholder="如：图片、视频、文档（可选）" />
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-primary" style="flex:1;padding:11px" id="btn1" onclick="handleUpload('btn1')">上传</button>
+          <a href="index.html" class="btn btn-ghost" style="padding:11px 20px">取消</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右：已选文件状态 -->
+    <div style="flex:1;min-width:300px;max-width:520px;">
+      <p style="font-size:12px;color:#64748b;margin-bottom:10px;font-weight:600;text-align:center">
+        ✅ 已选择文件（填写信息状态）
+      </p>
+      <div class="upload-container" style="margin:0">
+        <h2 class="form-title">上传素材</h2>
+        <p class="form-subtitle">支持图片、视频、音频、文档等格式，单文件最大 100MB</p>
+
+        <div class="upload-zone active">
+          <div class="upload-zone-icon">☁️</div>
+          <div class="upload-zone-text">点击更换文件，或拖拽到此处</div>
+          <div class="upload-zone-hint">图片 / 视频 / 音频 / PDF / 文档 / ZIP</div>
+        </div>
+
+        <div class="selected-file">
+          📄 <span>官网首页Banner设计稿_v3.jpg</span>
+          <span class="selected-file-size">2.4 MB</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">描述</label>
+          <input class="form-input focused" type="text" value="2026年春季首页主视觉" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">标签</label>
+          <input class="form-input" type="text" value="Banner, 首页, 设计稿" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">分类</label>
+          <input class="form-input" type="text" value="图片" />
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-primary" style="flex:1;padding:11px" id="btn2" onclick="handleUpload('btn2')">上传</button>
+          <a href="index.html" class="btn btn-ghost" style="padding:11px 20px">取消</a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 错误状态 -->
+  <div style="max-width:520px;margin:28px auto 0;">
+    <p style="font-size:12px;color:#64748b;margin-bottom:10px;font-weight:600;text-align:center">
+      ❌ 文件类型不支持（错误状态）
+    </p>
+    <div class="upload-container" style="margin:0">
+      <h2 class="form-title">上传素材</h2>
+      <p class="form-subtitle">支持图片、视频、音频、文档等格式，单文件最大 100MB</p>
+      <div class="form-error">不支持的文件类型: .exe，请上传图片、视频、文档等格式</div>
+      <div class="upload-zone">
+        <div class="upload-zone-icon">☁️</div>
+        <div class="upload-zone-text">点击选择文件，或拖拽到此处</div>
+        <div class="upload-zone-hint">图片 / 视频 / 音频 / PDF / 文档 / ZIP</div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:4px">
+        <button class="btn btn-primary" style="flex:1;padding:11px" disabled>上传</button>
+        <a href="index.html" class="btn btn-ghost" style="padding:11px 20px">取消</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 成功 Toast -->
+<div class="toast-container" id="successToast" style="display:none">
+  <div class="toast toast-success">✅ 上传成功，即将返回素材库...</div>
+</div>
+
+<script>
+  function formatSize(bytes) {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024*1024) return `${(bytes/1024).toFixed(1)} KB`;
+    return `${(bytes/1024/1024).toFixed(1)} MB`;
+  }
+  function handleFile(input, selectedId) {
+    const f = input.files[0];
+    if (!f) return;
+    document.getElementById(selectedId).style.display = 'flex';
+    const fname = selectedId.replace('selected','fname');
+    const fsize = selectedId.replace('selected','fsize');
+    document.getElementById(fname).textContent = f.name;
+    document.getElementById(fsize).textContent = formatSize(f.size);
+  }
+  function handleDrop(e, inputId, zoneId, selectedId) {
+    e.preventDefault();
+    document.getElementById(zoneId).classList.remove('active');
+    const f = e.dataTransfer.files[0];
+    if (!f) return;
+    document.getElementById(selectedId).style.display = 'flex';
+    const fname = selectedId.replace('selected','fname');
+    const fsize = selectedId.replace('selected','fsize');
+    document.getElementById(fname).textContent = f.name;
+    document.getElementById(fsize).textContent = formatSize(f.size);
+  }
+  function handleUpload(btnId) {
+    const btn = document.getElementById(btnId);
+    btn.disabled = true;
+    btn.textContent = '上传中...';
+    document.getElementById('successToast').style.display = 'flex';
+    setTimeout(() => { window.location.href = 'index.html'; }, 1800);
+  }
+</script>
+</body>
+</html>

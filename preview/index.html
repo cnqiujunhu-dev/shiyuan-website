@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>素材管理系统 - 素材库</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- 预览提示条 -->
+<div class="preview-bar">
+  <strong>🎨 设计预览模式</strong> — 仅供美工参考，数据为模拟数据
+  <nav class="preview-nav">
+    <a href="index.html" class="cur">素材库</a>
+    <a href="upload.html">上传</a>
+    <a href="login.html">登录</a>
+    <a href="register.html">注册</a>
+  </nav>
+</div>
+
+<!-- 导航栏 -->
+<nav class="nav">
+  <a href="index.html" class="nav-brand">📦 素材管理系统</a>
+  <a href="index.html" class="nav-link active">素材库</a>
+  <a href="upload.html" class="nav-link">上传</a>
+  <button class="btn-logout">退出登录</button>
+</nav>
+
+<!-- 主内容 -->
+<div class="page">
+
+  <!-- 页头 -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">素材库</h1>
+      <span class="badge">共 24 个文件</span>
+    </div>
+    <a href="upload.html" class="btn btn-primary">＋ 上传素材</a>
+  </div>
+
+  <!-- 统计卡片 -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-value">24</div>
+      <div class="stat-label">全部素材</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" style="color:#7c3aed">12</div>
+      <div class="stat-label">图片文件</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" style="color:#0891b2">5</div>
+      <div class="stat-label">视频文件</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" style="color:#d97706">4</div>
+      <div class="stat-label">文档 / PDF</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" style="color:#16a34a">1.8 GB</div>
+      <div class="stat-label">存储已用</div>
+    </div>
+  </div>
+
+  <!-- 搜索栏 -->
+  <form class="search-bar" onsubmit="return false">
+    <input class="search-input" type="text" placeholder="搜索文件名、描述、标签..." />
+    <button type="submit" class="btn btn-primary">搜索</button>
+    <button type="button" class="btn btn-ghost">清除</button>
+  </form>
+
+  <!-- 素材网格 -->
+  <div class="asset-grid">
+
+    <!-- 图片 -->
+    <div class="card">
+      <div class="card-icon" style="background:linear-gradient(135deg,#dbeafe,#ede9fe)">
+        🖼️<span class="card-type-badge">JPG</span>
+      </div>
+      <div class="card-body">
+        <div class="card-title">官网首页Banner设计稿_v3.jpg</div>
+        <div class="card-meta">📝 2026年春季首页主视觉</div>
+        <div class="card-meta">📂 图片</div>
+        <div class="card-meta">📏 2.4 MB · 2026/03/14</div>
+        <div class="card-tags">
+          <span class="tag">Banner</span>
+          <span class="tag">首页</span>
+          <span class="tag">设计稿</span>
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-ghost btn-sm" style="flex:1">⬇️ 下载</button>
+          <button class="btn btn-danger btn-sm" onclick="showConfirm('官网首页Banner设计稿_v3.jpg')">🗑️ 删除</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 视频 -->
+    <div class="card">
+      <div class="card-icon" style="background:linear-gradient(135deg,#fce7f3,#fee2e2)">
+        🎬<span class="card-type-badge">MP4</span>
+      </div>
+      <div class="card-body">
+        <div class="card-title">产品宣传片_剪辑版_1080p.mp4</div>
+        <div class="card-meta">📝 Q1产品发布会主宣传视频</div>
+        <div class="card-meta">📂 视频</div>
+        <div class="card-meta">📏 256.3 MB · 2026/03/10</div>
+        <div class="card-tags">
+          <span class="tag">宣传片</span>
+          <span class="tag">产品</span>
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-ghost btn-sm" style="flex:1">⬇️ 下载</button>
+          <button class="btn btn-danger btn-sm">🗑️ 删除</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PDF -->
+    <div class="card">
+      <div class="card-icon" style="background:linear-gradient(135deg,#fee2e2,#fef3c7)">
+        📄<span class="card-type-badge">PDF</span>
+      </div>
+      <div class="card-body">
+        <div class="card-title">2026年品牌视觉规范手册.pdf</div>
+        <div class="card-meta">📝 VI设计规范完整版</div>
+        <div class="card-meta">📂 文档</div>
+        <div class="card-meta">📏 18.7 MB · 2026/03/08</div>
+        <div class="card-tags">
+          <span class="tag">品牌</span>
+          <span class="tag">VI</span>
+          <span class="tag">规范</span>
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-ghost btn-sm" style="flex:1">⬇️ 下载</button>
+          <button class="btn btn-danger btn-sm">🗑️ 删除</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 图片 -->
+    <div class="card">
+      <div class="card-icon" style="background:linear-gradient(135deg,#d1fae5,#dbeafe)">
+        🖼️<span class="card-type-badge">PNG</span>
+      </div>
+      <div class="card-body">
+        <div class="card-title">App图标_全尺寸切图包.png</div>
+        <div class="card-meta">📂 图片</div>
+        <div class="card-meta">📏 1.1 MB · 2026/03/12</div>
+        <div class="card-tags">
+          <span class="tag">图标</span>
+          <span class="tag">App</span>
+          <span class="tag">切图</span>
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-ghost btn-sm" style="flex:1">⬇️ 下载</button>
+          <button class="btn btn-danger btn-sm">🗑️ 删除</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 音频 -->
+    <div class="card">
+      <div class="card-icon" style="background:linear-gradient(135deg,#ede9fe,#fce7f3)">
+        🎵<span class="card-type-badge">MP3</span>
+      </div>
+      <div class="card-body">
+        <div class="card-title">品牌宣传片背景音乐_正式版.mp3</div>
+        <div class="card-meta">📝 授权商用BGM，时长2分38秒</div>
+        <div class="card-meta">📂 音频</div>
+        <div class="card-meta">📏 6.2 MB · 2026/03/05</div>
+        <div class="card-tags">
+          <span class="tag">音乐</span>
+          <span class="tag">BGM</span>
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-ghost btn-sm" style="flex:1">⬇️ 下载</button>
+          <button class="btn btn-danger btn-sm">🗑️ 删除</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Word -->
+    <div class="card">
+      <div class="card-icon" style="background:linear-gradient(135deg,#dbeafe,#e0f2fe)">
+        📝<span class="card-type-badge">DOCX</span>
+      </div>
+      <div class="card-body">
+        <div class="card-title">产品需求文档PRD_v2.5.docx</div>
+        <div class="card-meta">📝 素材管理系统需求说明</div>
+        <div class="card-meta">📂 文档</div>
+        <div class="card-meta">📏 340 KB · 2026/03/01</div>
+        <div class="card-tags">
+          <span class="tag">PRD</span>
+          <span class="tag">需求</span>
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-ghost btn-sm" style="flex:1">⬇️ 下载</button>
+          <button class="btn btn-danger btn-sm">🗑️ 删除</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ZIP -->
+    <div class="card">
+      <div class="card-icon" style="background:linear-gradient(135deg,#fef3c7,#fde68a)">
+        📦<span class="card-type-badge">ZIP</span>
+      </div>
+      <div class="card-body">
+        <div class="card-title">Logo源文件及各格式导出包.zip</div>
+        <div class="card-meta">📝 AI/EPS/SVG/PNG全套</div>
+        <div class="card-meta">📂 素材包</div>
+        <div class="card-meta">📏 45.8 MB · 2026/02/28</div>
+        <div class="card-tags">
+          <span class="tag">Logo</span>
+          <span class="tag">源文件</span>
+          <span class="tag">品牌</span>
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-ghost btn-sm" style="flex:1">⬇️ 下载</button>
+          <button class="btn btn-danger btn-sm">🗑️ 删除</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 图片 -->
+    <div class="card">
+      <div class="card-icon" style="background:linear-gradient(135deg,#fce7f3,#ede9fe)">
+        🖼️<span class="card-type-badge">PNG</span>
+      </div>
+      <div class="card-body">
+        <div class="card-title">移动端UI设计稿_首页.png</div>
+        <div class="card-meta">📂 图片</div>
+        <div class="card-meta">📏 3.8 MB · 2026/02/25</div>
+        <div class="card-tags">
+          <span class="tag">UI</span>
+          <span class="tag">移动端</span>
+          <span class="tag">设计稿</span>
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-ghost btn-sm" style="flex:1">⬇️ 下载</button>
+          <button class="btn btn-danger btn-sm">🗑️ 删除</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Excel -->
+    <div class="card">
+      <div class="card-icon" style="background:linear-gradient(135deg,#d1fae5,#bbf7d0)">
+        📊<span class="card-type-badge">XLSX</span>
+      </div>
+      <div class="card-body">
+        <div class="card-title">2026年度运营数据汇总表.xlsx</div>
+        <div class="card-meta">📝 月度DAU/MAU/转化率统计</div>
+        <div class="card-meta">📂 数据</div>
+        <div class="card-meta">📏 128 KB · 2026/02/20</div>
+        <div class="card-tags">
+          <span class="tag">数据</span>
+          <span class="tag">运营</span>
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-ghost btn-sm" style="flex:1">⬇️ 下载</button>
+          <button class="btn btn-danger btn-sm">🗑️ 删除</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 视频 -->
+    <div class="card">
+      <div class="card-icon" style="background:linear-gradient(135deg,#fee2e2,#fce7f3)">
+        🎬<span class="card-type-badge">MP4</span>
+      </div>
+      <div class="card-body">
+        <div class="card-title">用户引导动画_登录流程.mp4</div>
+        <div class="card-meta">📝 新用户注册引导视频</div>
+        <div class="card-meta">📂 视频</div>
+        <div class="card-meta">📏 32.1 MB · 2026/02/18</div>
+        <div class="card-tags">
+          <span class="tag">动画</span>
+          <span class="tag">引导</span>
+          <span class="tag">UX</span>
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-ghost btn-sm" style="flex:1">⬇️ 下载</button>
+          <button class="btn btn-danger btn-sm">🗑️ 删除</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 图片 -->
+    <div class="card">
+      <div class="card-icon" style="background:linear-gradient(135deg,#e0f2fe,#dbeafe)">
+        🖼️<span class="card-type-badge">WEBP</span>
+      </div>
+      <div class="card-body">
+        <div class="card-title">社交媒体配图模板_方形.webp</div>
+        <div class="card-meta">📂 图片</div>
+        <div class="card-meta">📏 890 KB · 2026/02/15</div>
+        <div class="card-tags">
+          <span class="tag">社交媒体</span>
+          <span class="tag">模板</span>
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-ghost btn-sm" style="flex:1">⬇️ 下载</button>
+          <button class="btn btn-danger btn-sm">🗑️ 删除</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PDF -->
+    <div class="card">
+      <div class="card-icon" style="background:linear-gradient(135deg,#fef3c7,#fed7aa)">
+        📄<span class="card-type-badge">PDF</span>
+      </div>
+      <div class="card-body">
+        <div class="card-title">项目交付物清单_2026Q1.pdf</div>
+        <div class="card-meta">📂 文档</div>
+        <div class="card-meta">📏 2.1 MB · 2026/02/10</div>
+        <div class="card-tags">
+          <span class="tag">交付物</span>
+          <span class="tag">Q1</span>
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-ghost btn-sm" style="flex:1">⬇️ 下载</button>
+          <button class="btn btn-danger btn-sm">🗑️ 删除</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /asset-grid -->
+
+  <!-- 分页 -->
+  <div class="pagination">
+    <button class="btn btn-ghost btn-sm" disabled>← 上一页</button>
+    <span class="pagination-info">第 1 / 2 页</span>
+    <button class="btn btn-ghost btn-sm">下一页 →</button>
+  </div>
+
+</div><!-- /page -->
+
+<!-- Toast 示例 -->
+<div class="toast-container">
+  <div class="toast toast-success">✅ 素材上传成功</div>
+</div>
+
+<!-- 删除确认弹窗 -->
+<div class="confirm-overlay" id="confirmOverlay" style="display:none" onclick="hideConfirm()">
+  <div class="confirm-dialog" onclick="event.stopPropagation()">
+    <div class="confirm-title">确认删除</div>
+    <div class="confirm-body" id="confirmBody">确定要删除这个文件吗？此操作不可撤销。</div>
+    <div class="confirm-actions">
+      <button class="btn btn-ghost" onclick="hideConfirm()">取消</button>
+      <button class="btn btn-danger" onclick="hideConfirm()">确认删除</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Toast 自动消失
+  setTimeout(() => {
+    const t = document.querySelector('.toast-container');
+    if (t) t.style.opacity = '0';
+    setTimeout(() => { if (t) t.style.display = 'none'; }, 400);
+  }, 3000);
+
+  function showConfirm(name) {
+    document.getElementById('confirmBody').textContent = `确定要删除「${name}」吗？此操作不可撤销。`;
+    document.getElementById('confirmOverlay').style.display = 'flex';
+  }
+  function hideConfirm() {
+    document.getElementById('confirmOverlay').style.display = 'none';
+  }
+</script>
+</body>
+</html>
