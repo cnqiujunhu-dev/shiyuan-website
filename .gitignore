@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Build output
+frontend/dist/
+frontend/.vite/
+material-management-system/frontend/dist/
+material-management-system/frontend/.vite/
+
+# Environment variables (NEVER commit these)
+.env
+.env.local
+.env.production
+material-management-system/backend/.env
+
+# Uploaded files (runtime data, not source code)
+material-management-system/backend/uploads/*
+!material-management-system/backend/uploads/.gitkeep
+
+# Logs
+*.log
+npm-debug.log*
+/var/log/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.user
+
+# PM2
+.pm2/
+
+# Temporary files
+*.tmp
+*.temp

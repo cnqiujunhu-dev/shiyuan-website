@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>素材列表 - 素材管理系统</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: #f5f7fa;
+    }
+    header {
+      background-color: #2b72ff;
+      color: #fff;
+      padding: 1rem;
+      text-align: center;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 1rem auto;
+      padding: 0 1rem;
+    }
+    .search-bar {
+      display: flex;
+      margin-bottom: 1rem;
+    }
+    .search-bar input {
+      flex: 1;
+      padding: 0.5rem;
+      border: 1px solid #ccc;
+      border-radius: 4px 0 0 4px;
+    }
+    .search-bar button {
+      padding: 0.5rem 1rem;
+      background-color: #2b72ff;
+      color: #fff;
+      border: none;
+      border-radius: 0 4px 4px 0;
+      cursor: pointer;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+    .card {
+      background-color: #fff;
+      padding: 1rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      display: flex;
+      flex-direction: column;
+    }
+    .card h4 { margin: 0 0 0.5rem 0; font-size: 1.1rem; }
+    .card p { margin: 0.25rem 0; font-size: 0.9rem; }
+    .card .actions {
+      margin-top: auto;
+      display: flex;
+      justify-content: space-between;
+    }
+    .card button {
+      padding: 0.4rem 0.6rem;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+    .card .download { background-color: #2b72ff; color: #fff; }
+    .card .delete { background-color: #ff5c5c; color: #fff; }
+    .pagination {
+      margin-top: 1rem;
+      text-align: center;
+    }
+    .pagination button {
+      margin: 0 0.2rem;
+      padding: 0.4rem 0.8rem;
+      border: none;
+      border-radius: 4px;
+      background-color: #2b72ff;
+      color: #fff;
+      cursor: pointer;
+    }
+    .pagination button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>素材列表</h1>
+  </header>
+  <div class="container">
+    <div class="search-bar">
+      <input type="text" placeholder="搜索关键词" />
+      <button>搜索</button>
+    </div>
+    <div class="grid">
+      <!-- 示例卡片 -->
+      <div class="card">
+        <h4>示例素材.jpg</h4>
+        <p>描述：这是一个示例素材</p>
+        <p>分类：图片</p>
+        <p>标签：风景, 自然</p>
+        <p>上传时间：2025-09-29 12:34</p>
+        <div class="actions">
+          <button class="download">下载</button>
+          <button class="delete">删除</button>
+        </div>
+      </div>
+      <div class="card">
+        <h4>示例视频.mp4</h4>
+        <p>描述：视频示例</p>
+        <p>分类：视频</p>
+        <p>标签：演示</p>
+        <p>上传时间：2025-09-29 12:35</p>
+        <div class="actions">
+          <button class="download">下载</button>
+          <button class="delete">删除</button>
+        </div>
+      </div>
+      <!-- 更多卡片可按需添加 -->
+    </div>
+    <div class="pagination">
+      <button disabled>上一页</button>
+      <span>第 1 页 / 共 3 页</span>
+      <button>下一页</button>
+    </div>
+  </div>
+</body>
+</html>
