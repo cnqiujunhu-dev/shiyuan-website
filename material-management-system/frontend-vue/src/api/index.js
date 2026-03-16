@@ -50,10 +50,13 @@ export const assetsAPI = {
 export const applicationsAPI = {
   platformChange: (data) => request('/applications/platform-change', { method: 'POST', body: JSON.stringify(data) }),
   printReport: (data) => request('/applications/print-report', { method: 'POST', body: JSON.stringify(data) }),
+  buyback: (data) => request('/applications/buyback', { method: 'POST', body: JSON.stringify(data) }),
   getMyApplications: (params = {}) => request('/applications?' + new URLSearchParams(params)),
 }
 
 // Shop
 export const shopAPI = {
   getItems: (params = {}) => request('/shop/items?' + new URLSearchParams(params)),
+  buyItem: (id) => request(`/shop/items/${id}/buy`, { method: 'POST' }),
+  skipQueueBuy: (id) => request(`/shop/items/${id}/skip-queue`, { method: 'POST' }),
 }

@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl:*)",
+      "Bash(node:*)",
+      "Bash(cd:*)",
+      "Bash(cat:*)",
+      "Bash(for f:*)",
+      "Bash(do echo:*)",
+      "Read(//e/PRO/shiyuan_website/V0/material-management-system/**)",
+      "Bash(start:*)"
+    ]
+  }
+}

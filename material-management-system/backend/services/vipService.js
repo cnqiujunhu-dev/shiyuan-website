@@ -18,12 +18,15 @@ async function syncUserVip(userId) {
 
   if (newLevel.level > user.vip_level) {
     const oldLevel = user.vip_level;
-    const transferAdd = newLevel.perks.transfer_per_year - (oldLevel > 0 ? (await VipLevel.findOne({ level: oldLevel }).lean())?.perks?.transfer_per_year || 0 : 0);
-    const buybackAdd = newLevel.perks.buyback_per_year - (oldLevel > 0 ? (await VipLevel.findOne({ level: oldLevel }).lean())?.perks?.buyback_per_year || 0 : 0);
+    const oldPerks = oldLevel > 0 ? (await VipLevel.findOne({ level: oldLevel }).lean())?.perks || {} : {};
+    const transferAdd = newLevel.perks.transfer_per_year - (oldPerks.transfer_per_year || 0);
+    const buybackAdd = newLevel.perks.buyback_per_year - (oldPerks.buyback_per_year || 0);
+    const skipQueueAdd = newLevel.perks.skip_queue_per_year - (oldPerks.skip_queue_per_year || 0);
 
     user.vip_level = newLevel.level;
     if (transferAdd > 0) user.transfer_remaining += transferAdd;
     if (buybackAdd > 0) user.buyback_remaining += buybackAdd;
+    if (skipQueueAdd > 0) user.skip_queue_remaining += skipQueueAdd;
 
     if (!user.roles.includes('vip')) {
       user.roles.push('vip');

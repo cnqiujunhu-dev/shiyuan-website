@@ -18,6 +18,10 @@
           自印报备
           <span v-if="pendingCount.print > 0" style="margin-left:6px;background:#ef4444;color:#fff;border-radius:99px;padding:1px 6px;font-size:11px">{{ pendingCount.print }}</span>
         </button>
+        <button class="tab-btn" :class="{ active: activeTab === 'buyback' }" @click="switchTab('buyback')">
+          素材回购
+          <span v-if="pendingCount.buyback > 0" style="margin-left:6px;background:#ef4444;color:#fff;border-radius:99px;padding:1px 6px;font-size:11px">{{ pendingCount.buyback }}</span>
+        </button>
       </div>
 
       <!-- Status Filter -->
@@ -170,6 +174,49 @@
           </div>
         </div>
       </div>
+      <!-- Table: Buyback -->
+      <div v-if="activeTab === 'buyback'" class="table-container table-row-hover">
+        <div class="table-toolbar">
+          <span class="table-title">素材回购申请 - 共 {{ total }} 条</span>
+        </div>
+        <div v-if="loading" class="table-loading">加载中...</div>
+        <div v-else-if="rows.length === 0" class="table-empty">暂无回购记录</div>
+        <table v-else>
+          <thead>
+            <tr>
+              <th>申请时间</th>
+              <th>用户名</th>
+              <th>素材名称</th>
+              <th>回购原因</th>
+              <th>状态</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in rows" :key="row._id">
+              <td class="text-sm text-muted">{{ formatDate(row.created_at) }}</td>
+              <td style="font-weight:500">{{ row.user_id?.username || '-' }}</td>
+              <td>{{ row.payload?.item_name || '-' }}</td>
+              <td class="text-sm text-muted" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                {{ row.payload?.reason || '-' }}
+              </td>
+              <td><span class="status-badge" :class="row.status">{{ statusLabel(row.status) }}</span></td>
+              <td>
+                <button v-if="row.status === 'pending'" class="btn btn-primary btn-sm" @click="openDecide(row)">审批</button>
+                <button v-else class="btn btn-ghost btn-sm" @click="openDecide(row)">查看</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div v-if="total > pageSize" class="pagination">
+          <span class="pagination-info">第 {{ page }} / {{ totalPages }} 页，共 {{ total }} 条</span>
+          <div class="pagination-controls">
+            <button class="page-btn" :disabled="page <= 1" @click="changePage(page - 1)">«</button>
+            <template v-for="p in visiblePages" :key="p"><button class="page-btn" :class="{ active: p === page }" @click="changePage(p)">{{ p }}</button></template>
+            <button class="page-btn" :disabled="page >= totalPages" @click="changePage(page + 1)">»</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Decide Modal -->
@@ -184,17 +231,22 @@
           <div class="import-desc mb-3">
             <div class="import-desc-title">申请信息</div>
             <template v-if="activeTab === 'platform'">
-              <p>用户：{{ decideModal.row?.username }}</p>
-              <p>当前：{{ decideModal.row?.current_platform }} / {{ decideModal.row?.current_platform_id }}</p>
-              <p>申请改为：{{ decideModal.row?.new_platform }} / {{ decideModal.row?.new_platform_id }}</p>
-              <p v-if="decideModal.row?.note">备注：{{ decideModal.row?.note }}</p>
+              <p>用户：{{ decideModal.row?.user_id?.username || '-' }}</p>
+              <p>当前平台：{{ decideModal.row?.payload?.old_platform || '-' }}</p>
+              <p>申请改为：{{ decideModal.row?.payload?.new_platform || '-' }}</p>
+              <p v-if="decideModal.row?.payload?.reason">原因：{{ decideModal.row?.payload?.reason }}</p>
+            </template>
+            <template v-else-if="activeTab === 'print'">
+              <p>用户：{{ decideModal.row?.user_id?.username || '-' }}</p>
+              <p>素材：{{ decideModal.row?.payload?.item_name || '-' }}</p>
+              <p>二创类型：{{ decideModal.row?.payload?.derivative_type || '-' }}</p>
+              <p v-if="decideModal.row?.payload?.copies">份数：{{ decideModal.row?.payload?.copies }} 份</p>
+              <p v-if="decideModal.row?.payload?.description">用途：{{ decideModal.row?.payload?.description }}</p>
             </template>
             <template v-else>
-              <p>用户：{{ decideModal.row?.username }}</p>
-              <p>素材：{{ decideModal.row?.item_name }}</p>
-              <p>二创类型：{{ decideModal.row?.creation_type }}</p>
-              <p v-if="decideModal.row?.quantity">份数：{{ decideModal.row?.quantity }} 份</p>
-              <p v-if="decideModal.row?.usage">用途：{{ decideModal.row?.usage }}</p>
+              <p>用户：{{ decideModal.row?.user_id?.username || '-' }}</p>
+              <p>素材：{{ decideModal.row?.payload?.item_name || '-' }}</p>
+              <p v-if="decideModal.row?.payload?.reason">回购原因：{{ decideModal.row?.payload?.reason }}</p>
             </template>
           </div>
 
@@ -254,7 +306,7 @@ const total = ref(0)
 const page = ref(1)
 const pageSize = 20
 const loading = ref(false)
-const pendingCount = ref({ platform: 0, print: 0 })
+const pendingCount = ref({ platform: 0, print: 0, buyback: 0 })
 
 const filters = ref({ status: '' })
 
@@ -268,7 +320,9 @@ const visiblePages = computed(() => {
 })
 
 function tabType() {
-  return activeTab.value === 'platform' ? 'platform_change' : 'print_report'
+  if (activeTab.value === 'platform') return 'platform_change'
+  if (activeTab.value === 'print') return 'print_report'
+  return 'buyback'
 }
 
 async function loadData() {
@@ -284,7 +338,8 @@ async function loadData() {
     if (!filters.value.status) {
       const pending = rows.value.filter(r => r.status === 'pending').length
       if (activeTab.value === 'platform') pendingCount.value.platform = pending
-      else pendingCount.value.print = pending
+      else if (activeTab.value === 'print') pendingCount.value.print = pending
+      else pendingCount.value.buyback = pending
     }
   } finally {
     loading.value = false
@@ -328,9 +383,9 @@ function openDecide(row) {
 async function submitDecide() {
   decideModal.value.loading = true
   try {
-    await applicationsAPI.decide(decideModal.value.row.id, {
+    await applicationsAPI.decide(decideModal.value.row._id, {
       status: decideModal.value.decision,
-      admin_remark: decideModal.value.remark
+      remark: decideModal.value.remark
     })
     addToast('success', '审批成功', `申请已${decideModal.value.decision === 'approved' ? '通过' : '拒绝'}`)
     decideModal.value.show = false

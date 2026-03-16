@@ -15,6 +15,10 @@
         @click="activeTab = 'print'"
       >自印报备</button>
       <button
+        :class="['tab-item', { active: activeTab === 'buyback' }]"
+        @click="activeTab = 'buyback'; loadBuybackAssets()"
+      >素材回购</button>
+      <button
         :class="['tab-item', { active: activeTab === 'account' }]"
         @click="activeTab = 'account'"
       >账户设置</button>
@@ -219,6 +223,112 @@
       </div>
     </div>
 
+    <!-- ===== Buyback Tab ===== -->
+    <div v-if="activeTab === 'buyback'">
+      <div class="card" style="max-width:680px;margin-bottom:24px;">
+        <div class="section-title" style="margin-bottom:6px;">素材回购申请</div>
+        <p class="text-sm text-muted" style="margin-bottom:14px;">
+          VIP 会员每年可对已转让素材发起回购申请，本年度剩余回购次数：
+          <strong class="text-primary">{{ auth.user?.buyback_remaining ?? 0 }}</strong> 次
+        </p>
+
+        <div v-if="buybackError" class="alert alert-error" style="margin-bottom:12px;">{{ buybackError }}</div>
+        <div v-if="buybackSuccess" class="alert" style="background:#dcfce7;border:1px solid #86efac;border-radius:8px;padding:12px 14px;margin-bottom:12px;font-size:0.875rem;color:#166534;">
+          {{ buybackSuccess }}
+        </div>
+
+        <!-- 可回购的转让记录 -->
+        <div v-if="buybackAssetsLoading" class="loading-wrap" style="padding:20px 0;">
+          <div class="spinner"></div>
+        </div>
+        <div v-else-if="buybackAssets.length === 0" class="empty-state" style="padding:24px 0;">
+          <div class="empty-state-desc">暂无已转让的素材记录</div>
+        </div>
+        <div v-else>
+          <div v-for="o in buybackAssets" :key="o._id" class="asset-item" style="margin-bottom:10px;">
+            <div class="asset-preview" style="width:56px;height:56px;font-size:1.4rem;">
+              <img v-if="o.item_id?.preview_url" :src="o.item_id.preview_url" :alt="o.item_id?.name" />
+              <span v-else>🖼️</span>
+            </div>
+            <div class="asset-info">
+              <div class="asset-name">{{ o.item_id?.name || '未知素材' }}</div>
+              <div class="asset-meta">
+                <span v-if="o.item_id?.artist">{{ o.item_id.artist }}</span>
+                <span>转出于 {{ formatDate(o.occurred_at) }}</span>
+              </div>
+            </div>
+            <div style="flex-shrink:0">
+              <button
+                class="btn btn-secondary btn-sm"
+                :disabled="(auth.user?.buyback_remaining ?? 0) <= 0"
+                @click="openBuybackModal(o)"
+              >申请回购</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Buyback History -->
+      <div class="card" style="max-width:680px;">
+        <div class="section-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div class="section-title">回购申请记录</div>
+          <button class="btn btn-ghost btn-sm" @click="loadBuybackHistory">刷新</button>
+        </div>
+        <div class="loading-wrap" v-if="buybackHistoryLoading"><div class="spinner"></div></div>
+        <div class="empty-state" v-else-if="buybackHistory.length === 0" style="padding:24px 0;">
+          <div class="empty-state-desc">暂无回购记录</div>
+        </div>
+        <div v-else style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
+            <thead>
+              <tr style="background:#f9fafb;border-bottom:2px solid var(--border);">
+                <th style="padding:8px 14px;text-align:left;font-weight:600;">素材名称</th>
+                <th style="padding:8px 14px;text-align:left;font-weight:600;">回购原因</th>
+                <th style="padding:8px 14px;text-align:left;font-weight:600;">状态</th>
+                <th style="padding:8px 14px;text-align:left;font-weight:600;">申请时间</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in buybackHistory" :key="item._id" style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 14px;">{{ item.payload?.item_name || '-' }}</td>
+                <td style="padding:8px 14px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ item.payload?.reason || '-' }}</td>
+                <td style="padding:8px 14px;">
+                  <span class="badge" :class="statusBadgeClass(item.status)">{{ statusLabel(item.status) }}</span>
+                </td>
+                <td style="padding:8px 14px;white-space:nowrap;">{{ formatDate(item.created_at) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Buyback Modal -->
+      <Teleport to="body">
+        <div v-if="buybackModal.show" class="modal-overlay" @click.self="buybackModal.show = false">
+          <div class="modal">
+            <div class="modal-header">
+              <span class="modal-title">申请回购</span>
+              <button class="modal-close" @click="buybackModal.show = false">✕</button>
+            </div>
+            <p class="text-sm text-muted" style="margin-bottom:14px;">
+              素材：<strong>{{ buybackModal.ownership?.item_id?.name }}</strong>
+            </p>
+            <div class="form-group" style="margin-bottom:14px;">
+              <label class="form-label" style="display:block;font-size:0.875rem;font-weight:500;margin-bottom:6px;">回购原因（可选）</label>
+              <textarea v-model="buybackModal.reason" class="form-input" rows="3" placeholder="请简述回购原因..." style="resize:vertical;"></textarea>
+            </div>
+            <div v-if="buybackModal.error" class="alert alert-error" style="margin-bottom:12px;">{{ buybackModal.error }}</div>
+            <div class="modal-actions">
+              <button class="btn btn-ghost" @click="buybackModal.show = false">取消</button>
+              <button class="btn btn-primary" :disabled="buybackModal.loading" @click="submitBuyback">
+                {{ buybackModal.loading ? '提交中...' : '提交申请' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Teleport>
+    </div>
+
     <!-- ===== Account Settings Tab ===== -->
     <div v-if="activeTab === 'account'">
       <!-- Email Binding Section -->
@@ -326,7 +436,7 @@
 import { ref, reactive, inject, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth.js'
 import { useUserStore } from '@/stores/user.js'
-import { applicationsAPI, authAPI } from '@/api/index.js'
+import { applicationsAPI, authAPI, assetsAPI } from '@/api/index.js'
 
 const auth = useAuthStore()
 const userStore = useUserStore()
@@ -443,6 +553,65 @@ async function loadPrintHistory() {
   }
 }
 
+// ===== Buyback =====
+const buybackAssets = ref([])
+const buybackAssetsLoading = ref(false)
+const buybackHistory = ref([])
+const buybackHistoryLoading = ref(false)
+const buybackError = ref('')
+const buybackSuccess = ref('')
+const buybackModal = reactive({ show: false, ownership: null, reason: '', loading: false, error: '' })
+
+async function loadBuybackAssets() {
+  buybackAssetsLoading.value = true
+  try {
+    const res = await assetsAPI.getMyAssets({ type: 'transfer_out', limit: 50 })
+    buybackAssets.value = res.ownerships || []
+  } catch { /* silent */ } finally {
+    buybackAssetsLoading.value = false
+  }
+}
+
+async function loadBuybackHistory() {
+  buybackHistoryLoading.value = true
+  try {
+    const res = await applicationsAPI.getMyApplications({ type: 'buyback' })
+    buybackHistory.value = res.applications || []
+  } catch { /* silent */ } finally {
+    buybackHistoryLoading.value = false
+  }
+}
+
+function openBuybackModal(o) {
+  buybackModal.show = true
+  buybackModal.ownership = o
+  buybackModal.reason = ''
+  buybackModal.error = ''
+}
+
+async function submitBuyback() {
+  buybackModal.loading = true
+  buybackModal.error = ''
+  try {
+    const res = await applicationsAPI.buyback({
+      ownership_id: buybackModal.ownership._id,
+      reason: buybackModal.reason.trim()
+    })
+    if (res.message && !res.error) {
+      buybackSuccess.value = '回购申请已提交，请等待管理员审核。'
+      addToast('回购申请已提交', 'success')
+      buybackModal.show = false
+      loadBuybackHistory()
+    } else {
+      buybackModal.error = res.message || '提交失败'
+    }
+  } catch {
+    buybackModal.error = '网络错误，请稍后重试'
+  } finally {
+    buybackModal.loading = false
+  }
+}
+
 // ===== Account Settings =====
 const emailLoading = ref(false)
 const emailError = ref('')
@@ -555,5 +724,6 @@ onMounted(() => {
   userStore.fetchSummary()
   loadPlatformHistory()
   loadPrintHistory()
+  loadBuybackHistory()
 })
 </script>

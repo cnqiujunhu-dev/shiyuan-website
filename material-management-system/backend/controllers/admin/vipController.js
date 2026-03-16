@@ -40,6 +40,7 @@ exports.importVips = async (req, res) => {
       if (vipLevelDoc) {
         user.transfer_remaining = vipLevelDoc.perks.transfer_per_year;
         user.buyback_remaining = vipLevelDoc.perks.buyback_per_year;
+        user.skip_queue_remaining = vipLevelDoc.perks.skip_queue_per_year || 0;
         if (!user.roles.includes('vip')) user.roles.push('vip');
       }
 
@@ -136,7 +137,8 @@ exports.resetCounters = async (req, res) => {
         { vip_level: lvl.level },
         {
           transfer_remaining: lvl.perks.transfer_per_year,
-          buyback_remaining: lvl.perks.buyback_per_year
+          buyback_remaining: lvl.perks.buyback_per_year,
+          skip_queue_remaining: lvl.perks.skip_queue_per_year || 0
         }
       );
       updated += result.modifiedCount;
@@ -153,20 +155,47 @@ exports.resetCounters = async (req, res) => {
 
 exports.resetAnnualSpend = async (req, res) => {
   try {
-    const usersWithSpend = await User.find({ annual_spend: { $gt: 0 } }).select('_id vip_level annual_spend');
+    // 获取所有激活的 VIP 等级配置（升序）
+    const vipLevels = await VipLevel.find({ active: true }).sort({ threshold: 1 }).lean();
+
+    // 先读取所有 VIP 用户的当前 annual_spend（重置前）
+    const vipUsers = await User.find({ vip_level: { $gt: 0 } })
+      .select('_id vip_level annual_spend');
+
+    let downgraded = 0;
+
+    // 逐用户计算：基于 annual_spend 能保持的最高等级
+    for (const user of vipUsers) {
+      let qualifyLevel = 0;
+      for (const lvl of vipLevels) {
+        if (user.annual_spend >= lvl.threshold) qualifyLevel = lvl.level;
+      }
+
+      if (qualifyLevel < user.vip_level) {
+        const newLvlDoc = vipLevels.find(l => l.level === qualifyLevel) || null;
+        const updates = { vip_level: qualifyLevel };
+        if (newLvlDoc) {
+          updates.transfer_remaining = newLvlDoc.perks.transfer_per_year;
+          updates.buyback_remaining = newLvlDoc.perks.buyback_per_year;
+          updates.skip_queue_remaining = newLvlDoc.perks.skip_queue_per_year || 0;
+        } else {
+          // 降到普通用户
+          updates.transfer_remaining = 0;
+          updates.buyback_remaining = 0;
+          updates.skip_queue_remaining = 0;
+        }
+        await User.findByIdAndUpdate(user._id, updates);
+        downgraded++;
+      }
+    }
+
+    // 全员清零 annual_spend
     const updateResult = await User.updateMany({}, { annual_spend: 0 });
 
-    const downgradeResult = await User.updateMany(
-      { annual_spend: 0, vip_level: { $gt: 0 } },
-      { $inc: { vip_level: -1 } }
-    );
-
-    const updated = updateResult.modifiedCount;
-    const downgraded = downgradeResult.modifiedCount;
-
-    await auditService.log(req.user.id, 'reset_annual_spend', 'User', null, null, { updated, downgraded }, req);
-    logger.info('Annual spend reset', { updated, downgraded });
-    return res.json({ updated, downgraded });
+    await auditService.log(req.user.id, 'reset_annual_spend', 'User', null, null,
+      { updated: updateResult.modifiedCount, downgraded }, req);
+    logger.info('Annual spend reset', { updated: updateResult.modifiedCount, downgraded });
+    return res.json({ updated: updateResult.modifiedCount, downgraded });
   } catch (err) {
     logger.error('resetAnnualSpend error', { message: err.message });
     return res.status(500).json({ message: '服务器错误' });

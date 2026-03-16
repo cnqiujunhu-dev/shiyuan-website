@@ -8,7 +8,9 @@ const itemSchema = new mongoose.Schema(
     price: { type: Number, required: true },
     preview_url: { type: String },
     delivery_link: { type: String },
-    status: { type: String, enum: ['on_sale', 'off_sale'], default: 'on_sale' }
+    status: { type: String, enum: ['on_sale', 'off_sale'], default: 'on_sale' },
+    priority_only: { type: Boolean, default: false },
+    queue_enabled: { type: Boolean, default: false }
   },
   {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }

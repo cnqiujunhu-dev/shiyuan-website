@@ -67,8 +67,37 @@
             <span v-if="item.price">¥{{ item.price }}</span>
             <span v-else class="text-muted text-sm">价格面议</span>
           </div>
+          <!-- 优先购标记 -->
+          <div v-if="item.priority_only" class="badge badge-warning" style="margin-bottom:6px;font-size:0.72rem;">⭐ VIP 优先购</div>
+          <!-- 排队限购标记 -->
+          <div v-if="item.queue_enabled" class="badge badge-default" style="margin-bottom:6px;font-size:0.72rem;">🔒 限量排队</div>
+
+          <!-- 自购按钮（普通商品） -->
           <button
+            v-if="!item.queue_enabled"
             class="btn btn-primary btn-sm"
+            style="width:100%;margin-bottom:6px;"
+            :disabled="item.priority_only && auth.vipLevel < 1"
+            @click="doBuyItem(item)"
+          >
+            <span v-if="item.priority_only && auth.vipLevel < 1">VIP 专属</span>
+            <span v-else>立即购买</span>
+          </button>
+
+          <!-- 插队购买按钮（限购商品） -->
+          <button
+            v-if="item.queue_enabled"
+            class="btn btn-primary btn-sm"
+            style="width:100%;margin-bottom:6px;"
+            :disabled="auth.user?.skip_queue_remaining <= 0"
+            @click="doBuyItem(item, true)"
+          >
+            <span v-if="auth.user?.skip_queue_remaining > 0">插队购买（剩余 {{ auth.user.skip_queue_remaining }} 次）</span>
+            <span v-else>插队次数已用完</span>
+          </button>
+
+          <button
+            class="btn btn-secondary btn-sm"
             style="width:100%;"
             @click="openSponsorModal(item)"
           >赞助给他人</button>
@@ -146,8 +175,11 @@
 
 <script setup>
 import { ref, reactive, inject, onMounted } from 'vue'
+import { useAuthStore } from '@/stores/auth.js'
 import { shopAPI, assetsAPI } from '@/api/index.js'
 import Pagination from '@/components/Pagination.vue'
+
+const auth = useAuthStore()
 
 const addToast = inject('addToast')
 
@@ -193,6 +225,21 @@ function getTags(item) {
   if (!t) return []
   if (Array.isArray(t)) return t
   return t.split(',').map(s => s.trim()).filter(Boolean)
+}
+
+async function doBuyItem(item, isSkipQueue = false) {
+  try {
+    const res = isSkipQueue
+      ? await shopAPI.skipQueueBuy(item._id || item.id)
+      : await shopAPI.buyItem(item._id || item.id)
+    if (res.message && !res.error) {
+      addToast(res.message, 'success')
+    } else {
+      addToast(res.message || '购买失败', 'error')
+    }
+  } catch {
+    addToast('网络错误，请稍后重试', 'error')
+  }
 }
 
 function openSponsorModal(item) {
