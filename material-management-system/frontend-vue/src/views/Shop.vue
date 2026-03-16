@@ -234,6 +234,7 @@ async function doBuyItem(item, isSkipQueue = false) {
       : await shopAPI.buyItem(item._id || item.id)
     if (res.message && !res.error) {
       addToast(res.message, 'success')
+      loadItems(page.value)
     } else {
       addToast(res.message || '购买失败', 'error')
     }

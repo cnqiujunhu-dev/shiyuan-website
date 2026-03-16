@@ -22,5 +22,7 @@ const ownershipSchema = new mongoose.Schema(
 );
 
 ownershipSchema.index({ user_id: 1, occurred_at: -1 });
+ownershipSchema.index({ user_id: 1, active: 1, acquisition_type: 1 });
+ownershipSchema.index({ item_id: 1, active: 1 });
 
 module.exports = mongoose.model('Ownership', ownershipSchema);

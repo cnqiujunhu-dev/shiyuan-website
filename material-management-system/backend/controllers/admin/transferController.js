@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Ownership = require('../../models/Ownership');
 const Transaction = require('../../models/Transaction');
 const User = require('../../models/User');
@@ -49,32 +50,55 @@ exports.rollbackTransfer = async (req, res) => {
       active: false
     });
 
-    const actor = await User.findById(transferOutOwnership.user_id);
-    const targetUser = await User.findById(transferInOwnership.user_id);
-    const item = transferOutOwnership.item_id;
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+      if (originalOwnership) {
+        await Ownership.findByIdAndUpdate(originalOwnership._id, { active: true }, { session });
+      }
 
-    if (originalOwnership) {
-      originalOwnership.active = true;
-      await originalOwnership.save();
-    }
+      await Ownership.findByIdAndDelete(transferOutOwnership._id, { session });
+      await Ownership.findByIdAndDelete(transferInOwnership._id, { session });
 
-    await Ownership.findByIdAndDelete(transferOutOwnership._id);
-    await Ownership.findByIdAndDelete(transferInOwnership._id);
+      // 精确匹配转让双方的交易记录，避免误删
+      await Transaction.deleteMany({
+        item_id: transferOutOwnership.item_id,
+        occurred_at: transferOutOwnership.occurred_at,
+        type: { $in: ['transfer_out', 'transfer_in'] },
+        $or: [
+          { actor_id: transferOutOwnership.user_id },
+          { actor_id: transferInOwnership.user_id }
+        ]
+      }, { session });
 
-    await Transaction.deleteMany({
-      item_id: transferOutOwnership.item_id,
-      occurred_at: transferOutOwnership.occurred_at,
-      type: { $in: ['transfer_out', 'transfer_in'] }
-    });
+      if (transferOutOwnership.user_id) {
+        await User.findByIdAndUpdate(
+          transferOutOwnership.user_id,
+          { $inc: { transfer_remaining: 1 } },
+          { session }
+        );
+      }
 
-    if (actor) {
-      actor.transfer_remaining += 1;
-      await actor.save();
-    }
+      if (transferInOwnership.user_id && transferInOwnership.points_delta) {
+        await User.findByIdAndUpdate(
+          transferInOwnership.user_id,
+          { $inc: { points_total: -transferInOwnership.points_delta } },
+          { session }
+        );
+        // 确保积分不为负
+        await User.updateOne(
+          { _id: transferInOwnership.user_id, points_total: { $lt: 0 } },
+          { $set: { points_total: 0 } },
+          { session }
+        );
+      }
 
-    if (targetUser && transferInOwnership.points_delta) {
-      targetUser.points_total = Math.max(0, targetUser.points_total - transferInOwnership.points_delta);
-      await targetUser.save();
+      await session.commitTransaction();
+    } catch (txErr) {
+      await session.abortTransaction();
+      throw txErr;
+    } finally {
+      session.endSession();
     }
 
     await auditService.log(req.user.id, 'rollback_transfer', 'Ownership', id, null, { rollback: true }, req);

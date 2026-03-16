@@ -157,6 +157,9 @@ async function fetchData() {
     const res = await transactionsAPI.getAll(params)
     rows.value = res.transactions || []
     total.value = res.total || 0
+  } catch {
+    rows.value = []
+    total.value = 0
   } finally {
     loading.value = false
   }

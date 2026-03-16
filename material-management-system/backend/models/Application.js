@@ -15,4 +15,7 @@ const applicationSchema = new mongoose.Schema(
   }
 );
 
+applicationSchema.index({ user_id: 1, type: 1, status: 1 });
+applicationSchema.index({ status: 1, type: 1, created_at: -1 });
+
 module.exports = mongoose.model('Application', applicationSchema);

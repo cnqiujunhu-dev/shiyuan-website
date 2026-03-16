@@ -341,6 +341,9 @@ async function loadData() {
       else if (activeTab.value === 'print') pendingCount.value.print = pending
       else pendingCount.value.buyback = pending
     }
+  } catch {
+    rows.value = []
+    total.value = 0
   } finally {
     loading.value = false
   }

@@ -17,4 +17,7 @@ const itemSchema = new mongoose.Schema(
   }
 );
 
+itemSchema.index({ status: 1, created_at: -1 });
+itemSchema.index({ artist: 1 });
+
 module.exports = mongoose.model('Item', itemSchema);

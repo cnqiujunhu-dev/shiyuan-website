@@ -49,11 +49,14 @@ exports.getMyAssets = async (req, res) => {
 exports.transferAsset = async (req, res) => {
   const { ownership_id, target_platform, target_id, target_qq } = req.body;
   try {
-    if (!req.user.roles.includes('vip') && req.user.vip_level < 2) {
+    const actor = await User.findById(req.user.id);
+    if (!actor) {
+      return res.status(404).json({ message: '用户不存在' });
+    }
+    if (actor.vip_level < 2) {
       return res.status(403).json({ message: '需要 VIP 等级 2 或以上才能转让' });
     }
-    const actor = await User.findById(req.user.id);
-    if (!actor || actor.transfer_remaining <= 0) {
+    if (actor.transfer_remaining <= 0) {
       return res.status(400).json({ message: '本年度转让次数已用完' });
     }
     const ownership = await Ownership.findOne({

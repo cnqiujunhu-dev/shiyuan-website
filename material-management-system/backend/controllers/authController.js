@@ -5,8 +5,10 @@ const User = require('../models/User');
 const emailService = require('../services/emailService');
 const logger = require('../config/logger');
 
+const crypto = require('crypto');
+
 function generateCode() {
-  return String(Math.floor(100000 + Math.random() * 900000));
+  return crypto.randomInt(100000, 1000000).toString();
 }
 
 exports.register = async (req, res) => {

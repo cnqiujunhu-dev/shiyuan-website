@@ -36,10 +36,6 @@ exports.buySelf = async (req, res) => {
     if (!item || item.status !== 'on_sale') {
       return res.status(404).json({ message: '商品不存在或已下架' });
     }
-    // priority_only 商品需要 VIP 才能购买
-    if (item.priority_only && req.user.vip_level < 1) {
-      return res.status(403).json({ message: '该商品为 VIP 优先购商品，需要 VIP 资格才能购买' });
-    }
     // queue_enabled 商品需要走插队通道
     if (item.queue_enabled) {
       return res.status(400).json({ message: '该商品开启了排队限购，请使用插队购买通道' });
@@ -50,6 +46,13 @@ exports.buySelf = async (req, res) => {
     }
 
     const actor = await User.findById(req.user.id);
+    if (!actor) {
+      return res.status(404).json({ message: '用户不存在' });
+    }
+    // priority_only 商品需要 VIP 才能购买（使用数据库最新 vip_level）
+    if (item.priority_only && actor.vip_level < 1) {
+      return res.status(403).json({ message: '该商品为 VIP 优先购商品，需要 VIP 资格才能购买' });
+    }
     const now = new Date();
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -99,7 +102,13 @@ exports.skipQueueBuy = async (req, res) => {
     }
 
     const actor = await User.findById(req.user.id);
-    if (!actor || actor.skip_queue_remaining <= 0) {
+    if (!actor) {
+      return res.status(404).json({ message: '用户不存在' });
+    }
+    if (actor.vip_level < 4) {
+      return res.status(403).json({ message: '需要 VIP4 或以上才能使用插队购买' });
+    }
+    if (actor.skip_queue_remaining <= 0) {
       return res.status(400).json({ message: '本年度插队次数已用完' });
     }
     const existing = await Ownership.findOne({ user_id: req.user.id, item_id: item._id, active: true });

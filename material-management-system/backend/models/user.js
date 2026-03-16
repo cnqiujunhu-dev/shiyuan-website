@@ -27,6 +27,10 @@ const userSchema = new mongoose.Schema(
   }
 );
 
+userSchema.index({ qq: 1 }, { sparse: true });
+userSchema.index({ platform: 1, platform_id: 1 }, { sparse: true });
+userSchema.index({ vip_level: 1 });
+
 userSchema.set('toJSON', {
   transform: (doc, ret) => {
     delete ret.password_hash;

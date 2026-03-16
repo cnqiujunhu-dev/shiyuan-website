@@ -1,13 +1,5 @@
 <template>
   <div class="page">
-    <!-- Toast -->
-    <div class="toast-container">
-      <div v-for="t in toasts" :key="t.id" :class="['toast', t.type]">
-        <span class="toast-icon">{{ t.type === 'success' ? '✓' : t.type === 'error' ? '✕' : '!' }}</span>
-        <div class="toast-content"><div class="toast-title">{{ t.message }}</div></div>
-      </div>
-    </div>
-
     <div class="page-header">
       <div>
         <h1 class="page-title">商品列表</h1>
@@ -115,17 +107,11 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, inject, onMounted } from 'vue'
 import { itemsAPI } from '@/api/index.js'
 
-// ── Toast ────────────────────────────────────────────────────────────────────
-const toasts = ref([])
-let _toastId = 0
-function addToast(message, type = 'success') {
-  const id = ++_toastId
-  toasts.value.push({ id, message, type })
-  setTimeout(() => { toasts.value = toasts.value.filter(t => t.id !== id) }, 3000)
-}
+const _addToast = inject('addToast')
+function addToast(message, type = 'success') { _addToast(type, message) }
 
 // ── State ────────────────────────────────────────────────────────────────────
 const items = ref([])

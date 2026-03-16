@@ -166,6 +166,9 @@ async function loadData() {
     const res = await transfersAPI.getAll(params)
     rows.value = res.transfers || res.data || []
     total.value = res.total || rows.value.length
+  } catch {
+    rows.value = []
+    total.value = 0
   } finally {
     loading.value = false
   }

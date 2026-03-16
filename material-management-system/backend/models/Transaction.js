@@ -22,5 +22,7 @@ const transactionSchema = new mongoose.Schema(
 );
 
 transactionSchema.index({ actor_id: 1, occurred_at: -1 });
+transactionSchema.index({ actor_id: 1, type: 1, occurred_at: -1 });
+transactionSchema.index({ item_id: 1, occurred_at: -1 });
 
 module.exports = mongoose.model('Transaction', transactionSchema);

@@ -147,6 +147,9 @@ async function loadData() {
     const res = await usersAPI.getAll(params)
     rows.value = res.users || res.data || []
     total.value = res.total || rows.value.length
+  } catch {
+    rows.value = []
+    total.value = 0
   } finally {
     loading.value = false
   }

@@ -117,20 +117,23 @@ exports.decideApplication = async (req, res) => {
     return res.status(400).json({ message: '无效的审批状态' });
   }
   try {
-    const application = await Application.findById(id);
+    const updateFields = {
+      status,
+      decided_by: req.user.id,
+      decided_at: new Date()
+    };
+    if (remark) updateFields.remark = remark;
+
+    const application = await Application.findOneAndUpdate(
+      { _id: id, status: 'pending' },
+      { $set: updateFields },
+      { new: true }
+    );
     if (!application) {
-      return res.status(404).json({ message: '申请不存在' });
-    }
-    if (application.status !== 'pending') {
+      const exists = await Application.findById(id);
+      if (!exists) return res.status(404).json({ message: '申请不存在' });
       return res.status(400).json({ message: '该申请已被处理' });
     }
-
-    const before = { status: application.status };
-    application.status = status;
-    application.decided_by = req.user.id;
-    application.decided_at = new Date();
-    if (remark) application.remark = remark;
-    await application.save();
 
     if (status === 'approved') {
       if (application.type === 'platform_change') {
@@ -150,7 +153,7 @@ exports.decideApplication = async (req, res) => {
       'decide_application',
       'Application',
       application._id,
-      before,
+      { status: 'pending' },
       { status, remark },
       req
     );
