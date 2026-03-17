@@ -10,7 +10,7 @@ set -e
 # 配置区域 — 按需修改
 # ============================================================
 DEPLOY_DIR="/var/www/shiyuan"
-GIT_REPO="https://github.com/Junjun7/shiyuan-website.git"
+GIT_REPO="https://github.com/cnqiujunhu-dev/shiyuan-website.git"
 SERVER_IP="120.27.205.91"
 # 无域名时用 IP 访问；有域名后改为实际域名并取消 SSL 部分的注释
 DOMAIN="$SERVER_IP"
