@@ -11,6 +11,8 @@ set -e
 # ============================================================
 DEPLOY_DIR="/var/www/shiyuan"
 GIT_REPO="https://github.com/cnqiujunhu-dev/shiyuan-website.git"
+# 仓库克隆后，项目实际在子目录 material-management-system 下
+PROJECT_DIR="$DEPLOY_DIR/material-management-system"
 SERVER_IP="120.27.205.91"
 # 无域名时用 IP 访问；有域名后改为实际域名并取消 SSL 部分的注释
 DOMAIN="$SERVER_IP"
@@ -47,8 +49,10 @@ echo "[3/10] 安装 MongoDB..."
 if ! command -v mongod &>/dev/null; then
     curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | \
         gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg
+    # 自动检测 Ubuntu 版本代号
+    UBUNTU_CODENAME=$(lsb_release -cs 2>/dev/null || echo "jammy")
     echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] \
-        https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" \
+        https://repo.mongodb.org/apt/ubuntu ${UBUNTU_CODENAME}/mongodb-org/7.0 multiverse" \
         > /etc/apt/sources.list.d/mongodb-org-7.0.list
     apt update && apt install -y mongodb-org
 fi
@@ -107,20 +111,26 @@ fi
 # 6. 克隆代码
 # ============================================================
 echo "[6/10] 部署代码..."
-mkdir -p "$DEPLOY_DIR"
-if [ -d "$DEPLOY_DIR/.git" ]; then
+if [ -d "$PROJECT_DIR/backend" ] && [ -d "$PROJECT_DIR/frontend-vue" ]; then
+    echo "  代码已通过 scp 上传，跳过 git clone"
     cd "$DEPLOY_DIR"
-    git pull origin master
 else
-    git clone "$GIT_REPO" "$DEPLOY_DIR"
-    cd "$DEPLOY_DIR"
+    mkdir -p "$DEPLOY_DIR"
+    if [ -d "$DEPLOY_DIR/.git" ]; then
+        cd "$DEPLOY_DIR"
+        git pull origin master || git pull "https://ghfast.top/$GIT_REPO" master
+    else
+        git clone "$GIT_REPO" "$DEPLOY_DIR" || \
+            git clone "https://ghfast.top/$GIT_REPO" "$DEPLOY_DIR"
+        cd "$DEPLOY_DIR"
+    fi
 fi
 
 # ============================================================
 # 7. 配置后端
 # ============================================================
 echo "[7/10] 配置后端..."
-cd "$DEPLOY_DIR/backend"
+cd "$PROJECT_DIR/backend"
 npm install --omit=dev
 
 mkdir -p uploads
@@ -155,12 +165,12 @@ fi
 # 8. 构建前端
 # ============================================================
 echo "[8/10] 构建用户前台..."
-cd "$DEPLOY_DIR/frontend-vue"
+cd "$PROJECT_DIR/frontend-vue"
 npm install
 npm run build
 
 echo "[8/10] 构建管理后台..."
-cd "$DEPLOY_DIR/admin-vue"
+cd "$PROJECT_DIR/admin-vue"
 npm install
 npm run build
 
@@ -173,7 +183,7 @@ mkdir -p /var/log/shiyuan
 # 停掉旧进程（如有）
 pm2 delete shiyuan-api 2>/dev/null || true
 
-cd "$DEPLOY_DIR/backend"
+cd "$PROJECT_DIR/backend"
 pm2 start server.js \
     --name shiyuan-api \
     --max-memory-restart 400M \
@@ -187,7 +197,7 @@ pm2 startup systemd -u root --hp /root 2>/dev/null || true
 # 运行种子脚本
 echo "  运行数据库种子脚本..."
 sleep 2
-cd "$DEPLOY_DIR/backend"
+cd "$PROJECT_DIR/backend"
 node scripts/seed.js
 
 # ============================================================
@@ -205,7 +215,7 @@ server {
     listen 80;
     server_name _;
 
-    root /var/www/shiyuan/frontend-vue/dist;
+    root /var/www/shiyuan/material-management-system/frontend-vue/dist;
     index index.html;
 
     location / {
@@ -231,7 +241,7 @@ server {
     }
 
     location /uploads/ {
-        alias /var/www/shiyuan/backend/uploads/;
+        alias /var/www/shiyuan/material-management-system/backend/uploads/;
         expires 7d;
     }
 
@@ -245,7 +255,7 @@ server {
     listen 8080;
     server_name _;
 
-    root /var/www/shiyuan/admin-vue/dist;
+    root /var/www/shiyuan/material-management-system/admin-vue/dist;
     index index.html;
 
     location / {
@@ -271,7 +281,7 @@ server {
     }
 
     location /uploads/ {
-        alias /var/www/shiyuan/backend/uploads/;
+        alias /var/www/shiyuan/material-management-system/backend/uploads/;
         expires 7d;
     }
 
