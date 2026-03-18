@@ -108,7 +108,11 @@ async function handleRegister() {
     if (form.email) data.email = form.email
     const res = await authAPI.register(data)
     if (res.message && !res.error) {
-      successMsg.value = '注册成功！3 秒后跳转到登录页...'
+      if (res.emailSent) {
+        successMsg.value = '注册成功！验证码已发送至邮箱，请登录后在「帮助中心 → 账户设置」完成验证。3 秒后跳转...'
+      } else {
+        successMsg.value = '注册成功！3 秒后跳转到登录页...'
+      }
       setTimeout(() => router.push('/login'), 3000)
     } else {
       errorMsg.value = res.message || res.error || '注册失败，请稍后重试'

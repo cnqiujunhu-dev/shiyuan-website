@@ -30,11 +30,29 @@ exports.register = async (req, res) => {
     }
     const password_hash = await bcrypt.hash(password, 10);
     const userData = { username, password_hash };
+    // Email stored unverified — user must verify after login
     if (email) userData.email = email.toLowerCase();
 
     const user = await User.create(userData);
-    // TODO: 检查是否有老VIP导入记录（通过qq/email匹配，如有则同步vip信息）
     logger.info('New user registered', { userId: user._id, username });
+
+    // If email was provided, auto-send verification code
+    if (email) {
+      try {
+        const code = generateCode();
+        user.email_verify_code = code;
+        user.email_verify_expires = new Date(Date.now() + 10 * 60 * 1000);
+        await user.save();
+        await emailService.sendVerifyEmail(user.email, code);
+        return res.status(201).json({
+          message: '注册成功，验证码已发送至邮箱，请登录后验证',
+          userId: user._id,
+          emailSent: true
+        });
+      } catch (mailErr) {
+        logger.error('Registration email send failed', { message: mailErr.message });
+      }
+    }
     return res.status(201).json({ message: '注册成功', userId: user._id });
   } catch (err) {
     logger.error('Register error', { message: err.message });
@@ -92,15 +110,39 @@ exports.login = async (req, res) => {
 exports.sendVerifyEmail = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
-    if (!user || !user.email) {
-      return res.status(400).json({ message: '未绑定邮箱' });
+    if (!user) return res.status(404).json({ message: '用户不存在' });
+
+    const { email } = req.body || {};
+
+    // If email is provided in request, bind it first (unverified)
+    if (email) {
+      const normalized = email.toLowerCase().trim();
+      if (!/^\S+@\S+\.\S+$/.test(normalized)) {
+        return res.status(400).json({ message: '邮箱格式不正确' });
+      }
+      // Check if email is already used by another user
+      const existing = await User.findOne({ email: normalized, _id: { $ne: user._id } });
+      if (existing) {
+        return res.status(409).json({ message: '该邮箱已被其他用户使用' });
+      }
+      user.email = normalized;
+      user.email_verified_at = null; // Reset verification status
     }
+
+    if (!user.email) {
+      return res.status(400).json({ message: '请先输入邮箱地址' });
+    }
+
     const code = generateCode();
     user.email_verify_code = code;
     user.email_verify_expires = new Date(Date.now() + 10 * 60 * 1000);
     await user.save();
-    await emailService.sendVerifyEmail(user.email, code);
-    return res.json({ message: '验证码已发送' });
+    try {
+      await emailService.sendVerifyEmail(user.email, code);
+    } catch (mailErr) {
+      return res.status(500).json({ message: mailErr.message || '邮件发送失败' });
+    }
+    return res.json({ message: '验证码已发送至 ' + user.email });
   } catch (err) {
     logger.error('sendVerifyEmail error', { message: err.message });
     return res.status(500).json({ message: '服务器错误' });
@@ -124,7 +166,10 @@ exports.verifyEmail = async (req, res) => {
     user.email_verify_code = undefined;
     user.email_verify_expires = undefined;
     await user.save();
-    return res.json({ message: '邮箱验证成功' });
+    return res.json({
+      message: '邮箱验证成功',
+      user: { email: user.email, email_verified_at: user.email_verified_at }
+    });
   } catch (err) {
     logger.error('verifyEmail error', { message: err.message });
     return res.status(500).json({ message: '服务器错误' });

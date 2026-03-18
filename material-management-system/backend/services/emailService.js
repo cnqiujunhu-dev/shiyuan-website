@@ -39,8 +39,8 @@ async function sendVerifyEmail(email, code) {
   const subject = '【诸城叙梦】邮箱验证码';
   const html = `<p>您的邮箱验证码为：<strong>${code}</strong>，有效期 10 分钟，请勿泄露给他人。</p>`;
   if (!isMailConfigured()) {
-    logger.info('Email verify code (dev mode)', { email, code });
-    return;
+    logger.warn('Mail not configured — verify code not sent', { email, code });
+    throw new Error('邮件服务未配置，请联系管理员');
   }
   await sendMail(email, subject, html);
 }
@@ -49,8 +49,8 @@ async function sendPasswordResetEmail(email, code) {
   const subject = '【诸城叙梦】密码重置验证码';
   const html = `<p>您的密码重置验证码为：<strong>${code}</strong>，有效期 10 分钟，请勿泄露给他人。</p>`;
   if (!isMailConfigured()) {
-    logger.info('Password reset code (dev mode)', { email, code });
-    return;
+    logger.warn('Mail not configured — reset code not sent', { email, code });
+    throw new Error('邮件服务未配置，请联系管理员');
   }
   await sendMail(email, subject, html);
 }

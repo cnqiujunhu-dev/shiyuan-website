@@ -126,13 +126,14 @@
     <div v-if="activeTab === 'account'">
       <!-- Email Binding Section -->
       <div class="card" style="max-width:520px;margin-bottom:24px;">
-        <div class="section-title" style="margin-bottom:14px;">邮箱绑定</div>
+        <div class="section-title" style="margin-bottom:14px;">邮箱绑定与验证</div>
 
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
           <span class="text-sm text-muted">当前邮箱：</span>
           <span style="font-weight:500;">{{ auth.user?.email || '未绑定' }}</span>
           <span v-if="!auth.user?.email" class="badge badge-default">未绑定</span>
-          <span v-else class="badge badge-success">已绑定</span>
+          <span v-else-if="auth.user?.email_verified_at" class="badge badge-success">已验证</span>
+          <span v-else class="badge badge-warning">未验证</span>
         </div>
 
         <div v-if="emailError" class="alert alert-error" style="margin-bottom:12px;">{{ emailError }}</div>
@@ -140,25 +141,43 @@
           {{ emailSuccess }}
         </div>
 
+        <!-- Step 1: Input email + send code -->
         <div v-if="!emailCodeSent">
-          <button
-            class="btn btn-primary"
-            @click="sendVerifyEmail"
-            :disabled="emailLoading"
-          >
-            {{ emailLoading ? '发送中...' : (auth.user?.email ? '重新绑定邮箱' : '发送验证码') }}
-          </button>
+          <div class="form-group" style="margin-bottom:12px;">
+            <label class="form-label" style="display:block;font-size:0.875rem;font-weight:500;margin-bottom:6px;">
+              {{ auth.user?.email ? '更换邮箱' : '输入邮箱' }}
+            </label>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <input
+                v-model="emailInput"
+                type="email"
+                class="form-input"
+                :placeholder="auth.user?.email || '请输入邮箱地址'"
+                style="flex:1;max-width:280px;"
+              />
+              <button
+                class="btn btn-primary"
+                @click="sendVerifyEmail"
+                :disabled="emailLoading || !emailInput.trim()"
+              >
+                {{ emailLoading ? '发送中...' : '发送验证码' }}
+              </button>
+            </div>
+            <span class="form-hint" style="display:block;margin-top:4px;">输入邮箱后点击发送，验证码将发至该邮箱</span>
+          </div>
         </div>
+
+        <!-- Step 2: Enter verification code -->
         <div v-else>
-          <p class="text-sm text-muted mb-2">验证码已发送至您的邮箱，请在 10 分钟内输入。</p>
+          <p class="text-sm text-muted mb-2">验证码已发送至 <strong>{{ emailSentTo }}</strong>，请在 10 分钟内输入。</p>
           <div style="display:flex;gap:8px;align-items:center;">
             <input
               v-model="emailVerifyCode"
               type="text"
               class="form-input"
-              placeholder="请输入验证码"
+              placeholder="请输入 6 位验证码"
               style="flex:1;max-width:180px;"
-              maxlength="8"
+              maxlength="6"
             />
             <button
               class="btn btn-primary"
@@ -302,6 +321,8 @@ const emailError = ref('')
 const emailSuccess = ref('')
 const emailCodeSent = ref(false)
 const emailVerifyCode = ref('')
+const emailInput = ref('')
+const emailSentTo = ref('')
 
 const pwdForm = reactive({ old_password: '', new_password: '', confirm_password: '' })
 const pwdLoading = ref(false)
@@ -309,13 +330,16 @@ const pwdError = ref('')
 const pwdSuccess = ref('')
 
 async function sendVerifyEmail() {
+  const email = emailInput.value.trim()
+  if (!email) { emailError.value = '请输入邮箱地址'; return }
   emailError.value = ''
   emailSuccess.value = ''
   emailLoading.value = true
   try {
-    const res = await authAPI.sendVerifyEmail()
+    const res = await authAPI.sendVerifyEmail(email)
     if (res.message && !res.error) {
       emailCodeSent.value = true
+      emailSentTo.value = email
       addToast('验证码已发送', 'success')
     } else {
       emailError.value = res.message || res.error || '发送失败，请稍后重试'
