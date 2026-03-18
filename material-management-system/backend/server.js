@@ -13,6 +13,7 @@ connectDB(process.env.MONGODB_URI || 'mongodb://localhost:27017/shiyuan');
 
 const app = express();
 
+app.set('trust proxy', 1);
 app.use(helmet());
 
 const allowedOrigins = process.env.CORS_ORIGIN
