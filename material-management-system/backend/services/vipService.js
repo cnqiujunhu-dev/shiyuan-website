@@ -37,8 +37,38 @@ async function syncUserVip(userId) {
   }
 }
 
+// Admin can manually adjust VIP level (supports both increase and decrease)
+async function adjustUserVip(userId, newVipLevel) {
+  const user = await User.findById(userId);
+  if (!user) return null;
+
+  const levelConfig = await VipLevel.findOne({ level: newVipLevel }).lean();
+  if (!levelConfig && newVipLevel > 0) return null;
+
+  const oldLevel = user.vip_level;
+  user.vip_level = newVipLevel;
+
+  if (newVipLevel > 0 && levelConfig) {
+    user.transfer_remaining = levelConfig.perks.transfer_per_year || 0;
+    user.buyback_remaining = levelConfig.perks.buyback_per_year || 0;
+    user.skip_queue_remaining = levelConfig.perks.skip_queue_per_year || 0;
+
+    if (!user.roles.includes('vip')) {
+      user.roles.push('vip');
+    }
+  } else {
+    user.transfer_remaining = 0;
+    user.buyback_remaining = 0;
+    user.skip_queue_remaining = 0;
+    user.roles = user.roles.filter(r => r !== 'vip');
+  }
+
+  await user.save();
+  logger.info('User VIP adjusted', { userId, oldLevel, newLevel: newVipLevel });
+  return user;
+}
+
 async function seedVipLevels() {
-  // 门槛与权益严格按 PRD V2.0 定义
   const levels = [
     { level: 1, threshold: 888,   perks: { buyback_per_year: 1, transfer_per_year: 0, skip_queue_per_year: 0, priority_buy: true } },
     { level: 2, threshold: 2688,  perks: { buyback_per_year: 1, transfer_per_year: 1, skip_queue_per_year: 0, priority_buy: true } },
@@ -53,4 +83,4 @@ async function seedVipLevels() {
   logger.info('VIP levels seeded');
 }
 
-module.exports = { calcVipLevel, syncUserVip, seedVipLevels };
+module.exports = { calcVipLevel, syncUserVip, adjustUserVip, seedVipLevels };

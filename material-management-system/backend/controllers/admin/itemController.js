@@ -40,12 +40,18 @@ exports.uploadMiddleware = (req, res, next) => {
 
 exports.createItem = async (req, res) => {
   try {
-    const { name, artist, categories, price, delivery_link, status } = req.body;
-    const preview_url = req.file ? req.file.path.replace(/\\/g, '/') : undefined;
+    const { sku_code, name, artist, categories, topics, price, delivery_link, status } = req.body;
+    const preview_url = req.file ? req.file.path.replace(/\\/g, '/') : (req.body.preview_url || undefined);
+
+    const parsedTopics = topics ? (Array.isArray(topics) ? topics : JSON.parse(topics)) : [];
+    const parsedCategories = categories ? (Array.isArray(categories) ? categories : JSON.parse(categories)) : [];
+
     const item = await Item.create({
+      sku_code: sku_code || undefined,
       name,
       artist,
-      categories: Array.isArray(categories) ? categories : (categories ? [categories] : []),
+      topics: parsedTopics,
+      categories: parsedCategories,
       price: Number(price),
       preview_url,
       delivery_link,
@@ -62,15 +68,18 @@ exports.createItem = async (req, res) => {
 exports.updateItem = async (req, res) => {
   const { id } = req.params;
   try {
-    const { name, artist, categories, price, delivery_link, status } = req.body;
+    const { sku_code, name, artist, categories, topics, price, delivery_link, status } = req.body;
     const updates = {};
+    if (sku_code !== undefined) updates.sku_code = sku_code;
     if (name !== undefined) updates.name = name;
     if (artist !== undefined) updates.artist = artist;
-    if (categories !== undefined) updates.categories = Array.isArray(categories) ? categories : [categories];
+    if (topics !== undefined) updates.topics = Array.isArray(topics) ? topics : JSON.parse(topics);
+    if (categories !== undefined) updates.categories = Array.isArray(categories) ? categories : JSON.parse(categories);
     if (price !== undefined) updates.price = Number(price);
     if (delivery_link !== undefined) updates.delivery_link = delivery_link;
     if (status !== undefined) updates.status = status;
     if (req.file) updates.preview_url = req.file.path.replace(/\\/g, '/');
+    if (req.body.preview_url !== undefined && !req.file) updates.preview_url = req.body.preview_url;
 
     const item = await Item.findByIdAndUpdate(id, updates, { new: true });
     if (!item) {
@@ -85,13 +94,14 @@ exports.updateItem = async (req, res) => {
 };
 
 exports.getItems = async (req, res) => {
-  const { page = 1, limit = 20, status, artist } = req.query;
+  const { page = 1, limit = 20, status, artist, name } = req.query;
   try {
     const pageNum = Math.max(1, parseInt(page));
     const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
     const filter = {};
     if (status) filter.status = status;
     if (artist) filter.artist = new RegExp(artist, 'i');
+    if (name) filter.name = new RegExp(name, 'i');
     const total = await Item.countDocuments(filter);
     const items = await Item.find(filter)
       .sort({ created_at: -1 })
@@ -115,6 +125,8 @@ exports.getItemOwnerships = async (req, res) => {
     const total = await Ownership.countDocuments(filter);
     const ownerships = await Ownership.find(filter)
       .populate('user_id', 'username qq platform platform_id')
+      .populate('source_user_id', 'username qq')
+      .populate('target_user_id', 'username qq')
       .sort({ occurred_at: -1 })
       .skip((pageNum - 1) * limitNum)
       .limit(limitNum)

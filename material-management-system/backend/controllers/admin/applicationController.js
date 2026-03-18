@@ -135,17 +135,8 @@ exports.decideApplication = async (req, res) => {
       return res.status(400).json({ message: '该申请已被处理' });
     }
 
-    if (status === 'approved') {
-      if (application.type === 'platform_change') {
-        const user = await User.findById(application.user_id);
-        if (user && application.payload?.new_platform) {
-          user.platform = application.payload.new_platform;
-          user.platform_changed_at = new Date();
-          await user.save();
-        }
-      } else if (application.type === 'buyback') {
-        await executeBuyback(application);
-      }
+    if (status === 'approved' && application.type === 'buyback') {
+      await executeBuyback(application);
     }
 
     await auditService.log(

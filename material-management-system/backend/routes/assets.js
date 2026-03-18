@@ -6,5 +6,6 @@ const auth = require('../middleware/auth');
 router.get('/', auth, assetController.getMyAssets);
 router.post('/transfer', auth, assetController.transferAsset);
 router.post('/sponsor', auth, assetController.sponsorAsset);
+router.post('/register-sponsor', auth, assetController.registerSponsor);
 
 module.exports = router;

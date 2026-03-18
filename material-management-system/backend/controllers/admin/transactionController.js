@@ -25,6 +25,7 @@ async function findOrCreateUser(qq, platform, platformId) {
   return user;
 }
 
+// Import transactions (original format)
 exports.importTransactions = async (req, res) => {
   let records = req.body;
 
@@ -47,7 +48,7 @@ exports.importTransactions = async (req, res) => {
   for (let i = 0; i < records.length; i++) {
     const rec = records[i];
     try {
-      const occurredAt = rec.date ? new Date(rec.date) : new Date();
+      const occurredAt = rec.date || rec.occurred_at ? new Date(rec.date || rec.occurred_at) : new Date();
 
       let item = null;
       if (rec.item_id) {
@@ -63,7 +64,7 @@ exports.importTransactions = async (req, res) => {
 
       const actor = await findOrCreateUser(rec.actor_qq, rec.actor_platform, rec.actor_id);
 
-      if (rec.type === 'sponsor') {
+      if (rec.type === 'sponsor' || rec.type === 'purchase_sponsor') {
         const target = await findOrCreateUser(rec.target_qq, rec.target_platform, rec.target_id);
         if (!target) {
           errors.push({ index: i, record: rec, error: '找不到赞助目标用户' });
@@ -74,9 +75,10 @@ exports.importTransactions = async (req, res) => {
           {
             user_id: actor._id,
             item_id: item._id,
-            acquisition_type: 'self',
+            acquisition_type: 'sponsor',
             points_delta: item.price,
             occurred_at: occurredAt,
+            target_user_id: target._id,
             active: true
           },
           {
@@ -153,6 +155,112 @@ exports.importTransactions = async (req, res) => {
 
   await auditService.log(req.user.id, 'import_transactions', 'Transaction', null, null, { imported: imported.length, failed: errors.length }, req);
   logger.info('Transactions imported', { imported: imported.length, failed: errors.length });
+  return res.json({ imported: imported.length, failed: errors.length, errors });
+};
+
+// Import authorization records (new format with dual-user support)
+exports.importAuthorizations = async (req, res) => {
+  let records = req.body;
+
+  if (!Array.isArray(records) || records.length === 0) {
+    return res.status(400).json({ message: '请提供有效的授权记录数组' });
+  }
+
+  const imported = [];
+  const errors = [];
+
+  for (let i = 0; i < records.length; i++) {
+    const rec = records[i];
+    try {
+      // Find item by name
+      const item = await Item.findOne({ name: new RegExp(rec.name.trim(), 'i') });
+      if (!item) {
+        errors.push({ index: i, record: rec, error: `找不到素材: ${rec.name}` });
+        continue;
+      }
+
+      const type1 = rec.acquisition_type_1 || rec.type1;
+      const id1 = rec.id1;
+      const qq1 = rec.qq1;
+      const points1 = Number(rec.points1 || 0);
+      const delivery1 = rec.delivery_link_1 || '';
+
+      if (!type1 || (!id1 && !qq1)) {
+        errors.push({ index: i, record: rec, error: '缺少用户1的获取类型或ID/QQ' });
+        continue;
+      }
+
+      // Map Chinese type names to internal types
+      const typeMap = { '自用': 'self', '已赞助': 'sponsor', '赞待': 'sponsor_pending', '赞助待定': 'sponsor_pending', '被赞助': 'sponsored' };
+      const mappedType1 = typeMap[type1] || type1;
+
+      const user1 = await findOrCreateUser(qq1, null, id1);
+
+      // Create ownership for user 1
+      await Ownership.create({
+        user_id: user1._id,
+        item_id: item._id,
+        acquisition_type: mappedType1,
+        points_delta: points1,
+        occurred_at: new Date(),
+        delivery_link: delivery1 || (mappedType1 === 'self' ? item.delivery_link : undefined),
+        active: true
+      });
+
+      // Update user1 points
+      if (points1 > 0) {
+        user1.points_total += points1;
+        user1.annual_spend += points1;
+        await user1.save();
+        await syncUserVip(user1._id);
+      }
+
+      // Handle user 2 if present (for sponsor relationships)
+      const type2 = rec.acquisition_type_2 || rec.type2;
+      const id2 = rec.id2;
+      const qq2 = rec.qq2;
+      const points2 = Number(rec.points2 || 0);
+      const delivery2 = rec.delivery_link_2 || '';
+
+      if (type2 && (id2 || qq2)) {
+        const mappedType2 = typeMap[type2] || type2;
+        const user2 = await findOrCreateUser(qq2, null, id2);
+
+        await Ownership.create({
+          user_id: user2._id,
+          item_id: item._id,
+          acquisition_type: mappedType2,
+          points_delta: points2,
+          occurred_at: new Date(),
+          delivery_link: delivery2 || (mappedType2 === 'sponsored' ? item.delivery_link : undefined),
+          source_user_id: mappedType2 === 'sponsored' ? user1._id : undefined,
+          active: true
+        });
+
+        // Link user1 to user2 if sponsor relationship
+        if (mappedType1 === 'sponsor' && mappedType2 === 'sponsored') {
+          await Ownership.findOneAndUpdate(
+            { user_id: user1._id, item_id: item._id, acquisition_type: 'sponsor', active: true },
+            { target_user_id: user2._id }
+          );
+        }
+
+        if (points2 > 0) {
+          user2.points_total += points2;
+          user2.annual_spend += points2;
+          await user2.save();
+          await syncUserVip(user2._id);
+        }
+      }
+
+      imported.push({ index: i, name: rec.name, user1: user1.username });
+    } catch (err) {
+      errors.push({ index: i, record: rec, error: err.message });
+    }
+  }
+
+  await auditService.log(req.user.id, 'import_authorizations', 'Ownership', null, null, { imported: imported.length, failed: errors.length }, req);
+  logger.info('Authorizations imported', { imported: imported.length, failed: errors.length });
   return res.json({ imported: imported.length, failed: errors.length, errors });
 };
 

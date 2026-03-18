@@ -3,7 +3,7 @@
     <div class="page-header">
       <div>
         <h1 class="page-title">商品列表</h1>
-        <p class="page-subtitle">管理所有在售及下架商品</p>
+        <p class="page-subtitle">管理所有素材商品</p>
       </div>
       <router-link to="/items/new" class="btn btn-primary">+ 新增商品</router-link>
     </div>
@@ -18,7 +18,8 @@
         <label class="search-label">状态</label>
         <select v-model="search.status" class="search-input">
           <option value="">全部</option>
-          <option value="on_sale">上架</option>
+          <option value="on_sale">在售</option>
+          <option value="completed">结车</option>
           <option value="off_sale">下架</option>
         </select>
       </div>
@@ -35,10 +36,10 @@
       <table style="width:100%;border-collapse:collapse;">
         <thead>
           <tr style="border-bottom:1px solid var(--border,#e5e7eb);">
-            <th style="padding:12px 16px;text-align:left;font-weight:600;font-size:13px;color:var(--text-secondary,#6b7280);">预览图</th>
+            <th style="padding:12px 16px;text-align:left;font-weight:600;font-size:13px;color:var(--text-secondary,#6b7280);">SKU</th>
+            <th style="padding:12px 16px;text-align:left;font-weight:600;font-size:13px;color:var(--text-secondary,#6b7280);">结车图</th>
             <th style="padding:12px 16px;text-align:left;font-weight:600;font-size:13px;color:var(--text-secondary,#6b7280);">商品名称</th>
-            <th style="padding:12px 16px;text-align:left;font-weight:600;font-size:13px;color:var(--text-secondary,#6b7280);">作者</th>
-            <th style="padding:12px 16px;text-align:left;font-weight:600;font-size:13px;color:var(--text-secondary,#6b7280);">分类标签</th>
+            <th style="padding:12px 16px;text-align:left;font-weight:600;font-size:13px;color:var(--text-secondary,#6b7280);">画师</th>
             <th style="padding:12px 16px;text-align:left;font-weight:600;font-size:13px;color:var(--text-secondary,#6b7280);">价格(pts)</th>
             <th style="padding:12px 16px;text-align:left;font-weight:600;font-size:13px;color:var(--text-secondary,#6b7280);">状态</th>
             <th style="padding:12px 16px;text-align:left;font-weight:600;font-size:13px;color:var(--text-secondary,#6b7280);">操作</th>
@@ -53,22 +54,17 @@
           </tr>
           <template v-else>
             <tr v-for="item in items" :key="item._id" class="table-row-hover">
+              <td style="padding:10px 16px;font-size:13px;color:var(--text-secondary,#6b7280);">{{ item.sku_code || '—' }}</td>
               <td style="padding:10px 16px;">
-                <img v-if="item.preview_url" :src="item.preview_url" class="preview-img" alt="预览图" style="width:56px;height:40px;object-fit:cover;border-radius:4px;" />
+                <img v-if="item.preview_url" :src="item.preview_url" class="preview-img" alt="结车图" style="width:56px;height:40px;object-fit:cover;border-radius:4px;" />
                 <div v-else class="img-placeholder" style="width:56px;height:40px;display:flex;align-items:center;justify-content:center;">无图</div>
               </td>
               <td style="padding:10px 16px;font-weight:500;">{{ item.name }}</td>
               <td style="padding:10px 16px;color:var(--text-secondary,#6b7280);">{{ item.artist || '—' }}</td>
-              <td style="padding:10px 16px;">
-                <div class="tags-wrap">
-                  <span v-for="cat in (item.categories || [])" :key="cat" class="tag">{{ cat }}</span>
-                  <span v-if="!item.categories || item.categories.length === 0" style="color:var(--text-muted,#9ca3af);font-size:13px;">—</span>
-                </div>
-              </td>
               <td style="padding:10px 16px;">{{ item.price }}</td>
               <td style="padding:10px 16px;">
-                <span :class="['status-badge', item.status === 'on_sale' ? 'active' : 'inactive']">
-                  {{ item.status === 'on_sale' ? '上架' : '下架' }}
+                <span :class="['status-badge', statusClass(item.status)]">
+                  {{ statusLabel(item.status) }}
                 </span>
               </td>
               <td style="padding:10px 16px;">
@@ -79,7 +75,7 @@
                     :disabled="!!toggling[item._id]"
                     @click="toggleStatus(item)"
                   >
-                    {{ toggling[item._id] ? '处理中...' : (item.status === 'on_sale' ? '下架' : '上架') }}
+                    {{ toggling[item._id] ? '处理中...' : (item.status === 'on_sale' ? '结车' : '上架') }}
                   </button>
                 </div>
               </td>
@@ -92,14 +88,14 @@
       <div v-if="total > pageSize" class="pagination">
         <span class="pagination-info">第 {{ page }} / {{ totalPages }} 页，共 {{ total }} 条</span>
         <div class="pagination-controls">
-          <button class="page-btn" :disabled="page <= 1" @click="changePage(page - 1)">«</button>
+          <button class="page-btn" :disabled="page <= 1" @click="changePage(page - 1)">&laquo;</button>
           <button
             v-for="p in visiblePages"
             :key="p"
             :class="['page-btn', { active: p === page }]"
             @click="changePage(p)"
           >{{ p }}</button>
-          <button class="page-btn" :disabled="page >= totalPages" @click="changePage(page + 1)">»</button>
+          <button class="page-btn" :disabled="page >= totalPages" @click="changePage(page + 1)">&raquo;</button>
         </div>
       </div>
     </div>
@@ -132,6 +128,19 @@ const visiblePages = computed(() => {
   return pages
 })
 
+function statusLabel(status) {
+  if (status === 'on_sale') return '在售'
+  if (status === 'completed') return '结车'
+  if (status === 'off_sale') return '下架'
+  return status
+}
+
+function statusClass(status) {
+  if (status === 'on_sale') return 'active'
+  if (status === 'completed') return 'inactive'
+  return 'inactive'
+}
+
 // ── API ───────────────────────────────────────────────────────────────────────
 async function fetchItems() {
   loading.value = true
@@ -154,12 +163,12 @@ function resetSearch() { search.value = { name: '', status: '' }; page.value = 1
 function changePage(p) { if (p < 1 || p > totalPages.value) return; page.value = p; fetchItems() }
 
 async function toggleStatus(item) {
-  const newStatus = item.status === 'on_sale' ? 'off_sale' : 'on_sale'
+  const newStatus = item.status === 'on_sale' ? 'completed' : 'on_sale'
   toggling[item._id] = true
   try {
     await itemsAPI.update(item._id, { status: newStatus })
     item.status = newStatus
-    addToast(`已${newStatus === 'on_sale' ? '上架' : '下架'}：${item.name}`, 'success')
+    addToast(`已${statusLabel(newStatus)}：${item.name}`, 'success')
   } catch {
     addToast('操作失败，请重试', 'error')
   } finally {

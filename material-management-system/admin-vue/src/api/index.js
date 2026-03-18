@@ -39,6 +39,7 @@ export const itemsAPI = {
 export const transactionsAPI = {
   getAll: (params = {}) => request('/admin/transactions?' + new URLSearchParams(params)),
   importBatch: (data) => request('/admin/transactions/import', { method: 'POST', body: JSON.stringify(data) }),
+  importAuthorizations: (data) => request('/admin/transactions/import-authorizations', { method: 'POST', body: JSON.stringify(data) }),
 }
 
 // Admin - VIPs

@@ -93,7 +93,7 @@
               <td style="padding:10px 16px;text-align:center;">{{ row.transfer === 0 ? '—' : row.transfer }}</td>
               <td style="padding:10px 16px;text-align:center;">{{ row.skipQueue === 0 ? '—' : row.skipQueue }}</td>
               <td style="padding:10px 16px;text-align:center;">
-                <span v-if="row.priorityBuy" class="badge badge-success">✓ 优先购</span>
+                <span v-if="row.priorityBuy" class="badge badge-success">优先购</span>
                 <span v-else class="text-muted">—</span>
               </td>
             </tr>
@@ -104,15 +104,15 @@
 
     <!-- Notes Section -->
     <div class="card">
-      <div class="section-title" style="margin-bottom:14px;">注意事项</div>
+      <div class="section-title" style="margin-bottom:14px;">说明</div>
       <ul style="padding-left:20px;color:var(--text-muted);font-size:0.875rem;line-height:2.2;">
         <li>VIP 等级依据累计积分达到对应门槛自动升级，积分由购买记录累积产生。</li>
         <li>每年年度权益（回购、转让、免抢次数）于每年 1 月 1 日重置，未使用次数不可累计至下一年。</li>
-        <li>只要年度消费仍达标（即上一年消费金额满足当前等级要求），等级在年末不会降级。</li>
+        <li>只要年度消费不为 0，等级在年末不会降级。</li>
         <li>转让操作仅限 VIP2 及以上，转让后素材不可撤回，请谨慎操作。</li>
-        <li>回购资格需提前联系管理员确认，管理员审核通过后方可执行回购。</li>
+        <li>回购资格提前联系管理员确认，管理员审核通过后方可执行回购。回购内容仅限自用，不可转让。若作者 A 帮作者 B 回购，作者 B 需有在橙/闪/艺文游平台发布过作品，A 方可帮回购。V1 帮回购限 1 次/年，其他等级无限制。</li>
         <li>免抢资格（skip-queue）为每期开放前由平台统一安排，具体时间以公告为准。</li>
-        <li>VIP 优先购为在正式开放前 24 小时享有优先购买权，具体以公告为准。</li>
+        <li>VIP 优先购为在正式开售前享有优先购买权，具体以公告为准。</li>
         <li>平台保留对 VIP 规则进行合理调整的权利，重大调整将提前公告。</li>
       </ul>
     </div>

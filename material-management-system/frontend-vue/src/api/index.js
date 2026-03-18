@@ -44,12 +44,11 @@ export const assetsAPI = {
   getMyAssets: (params = {}) => request('/assets?' + new URLSearchParams(params)),
   transfer: (data) => request('/assets/transfer', { method: 'POST', body: JSON.stringify(data) }),
   sponsor: (data) => request('/assets/sponsor', { method: 'POST', body: JSON.stringify(data) }),
+  registerSponsor: (data) => request('/assets/register-sponsor', { method: 'POST', body: JSON.stringify(data) }),
 }
 
 // Applications
 export const applicationsAPI = {
-  platformChange: (data) => request('/applications/platform-change', { method: 'POST', body: JSON.stringify(data) }),
-  printReport: (data) => request('/applications/print-report', { method: 'POST', body: JSON.stringify(data) }),
   buyback: (data) => request('/applications/buyback', { method: 'POST', body: JSON.stringify(data) }),
   getMyApplications: (params = {}) => request('/applications?' + new URLSearchParams(params)),
 }

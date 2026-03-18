@@ -3,29 +3,13 @@
     <div class="page-header">
       <div>
         <div class="page-title">审核中心</div>
-        <div class="page-subtitle">处理平台更换申请与自印报备</div>
+        <div class="page-subtitle">处理素材回购申请</div>
       </div>
     </div>
 
     <div class="page">
-      <!-- Tabs -->
-      <div class="tabs">
-        <button class="tab-btn" :class="{ active: activeTab === 'platform' }" @click="switchTab('platform')">
-          平台更换申请
-          <span v-if="pendingCount.platform > 0" style="margin-left:6px;background:#ef4444;color:#fff;border-radius:99px;padding:1px 6px;font-size:11px">{{ pendingCount.platform }}</span>
-        </button>
-        <button class="tab-btn" :class="{ active: activeTab === 'print' }" @click="switchTab('print')">
-          自印报备
-          <span v-if="pendingCount.print > 0" style="margin-left:6px;background:#ef4444;color:#fff;border-radius:99px;padding:1px 6px;font-size:11px">{{ pendingCount.print }}</span>
-        </button>
-        <button class="tab-btn" :class="{ active: activeTab === 'buyback' }" @click="switchTab('buyback')">
-          素材回购
-          <span v-if="pendingCount.buyback > 0" style="margin-left:6px;background:#ef4444;color:#fff;border-radius:99px;padding:1px 6px;font-size:11px">{{ pendingCount.buyback }}</span>
-        </button>
-      </div>
-
       <!-- Status Filter -->
-      <div class="search-bar" style="border-radius:0 0 var(--radius) var(--radius);margin-top:-1px;border-top:none">
+      <div class="search-bar">
         <div class="search-group">
           <label class="search-label">状态筛选</label>
           <select v-model="filters.status" class="search-input" @change="search">
@@ -38,144 +22,8 @@
         <button class="btn btn-secondary btn-sm" @click="resetFilters">重置</button>
       </div>
 
-      <!-- Table: Platform Change -->
-      <div v-if="activeTab === 'platform'" class="table-container table-row-hover">
-        <div class="table-toolbar">
-          <span class="table-title">平台更换申请 - 共 {{ total }} 条</span>
-        </div>
-
-        <div v-if="loading" class="table-loading">加载中...</div>
-        <div v-else-if="rows.length === 0" class="table-empty">暂无申请记录</div>
-        <table v-else>
-          <thead>
-            <tr>
-              <th>申请时间</th>
-              <th>用户名</th>
-              <th>当前平台</th>
-              <th>申请改为</th>
-              <th>备注</th>
-              <th>状态</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in rows" :key="row.id">
-              <td class="text-sm text-muted">{{ formatDate(row.created_at) }}</td>
-              <td style="font-weight:500">{{ row.username || row.user?.username || '-' }}</td>
-              <td>
-                <span class="text-sm">{{ row.current_platform || '-' }}</span>
-                <span v-if="row.current_platform_id" class="text-muted text-sm"> / {{ row.current_platform_id }}</span>
-              </td>
-              <td>
-                <span class="text-sm" style="color:var(--primary);font-weight:500">{{ row.new_platform || '-' }}</span>
-                <span v-if="row.new_platform_id" class="text-muted text-sm"> / {{ row.new_platform_id }}</span>
-              </td>
-              <td class="text-sm text-muted" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-                {{ row.note || '-' }}
-              </td>
-              <td>
-                <span class="status-badge" :class="row.status">{{ statusLabel(row.status) }}</span>
-              </td>
-              <td>
-                <button
-                  v-if="row.status === 'pending'"
-                  class="btn btn-primary btn-sm"
-                  @click="openDecide(row)"
-                >
-                  审批
-                </button>
-                <button
-                  v-else
-                  class="btn btn-ghost btn-sm"
-                  @click="openDecide(row)"
-                >
-                  查看
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-
-        <!-- Pagination -->
-        <div v-if="total > pageSize" class="pagination">
-          <span class="pagination-info">第 {{ page }} / {{ totalPages }} 页，共 {{ total }} 条</span>
-          <div class="pagination-controls">
-            <button class="page-btn" :disabled="page <= 1" @click="changePage(page - 1)">«</button>
-            <template v-for="p in visiblePages" :key="p">
-              <button class="page-btn" :class="{ active: p === page }" @click="changePage(p)">{{ p }}</button>
-            </template>
-            <button class="page-btn" :disabled="page >= totalPages" @click="changePage(page + 1)">»</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Table: Print Report -->
-      <div v-if="activeTab === 'print'" class="table-container table-row-hover">
-        <div class="table-toolbar">
-          <span class="table-title">自印报备 - 共 {{ total }} 条</span>
-        </div>
-
-        <div v-if="loading" class="table-loading">加载中...</div>
-        <div v-else-if="rows.length === 0" class="table-empty">暂无报备记录</div>
-        <table v-else>
-          <thead>
-            <tr>
-              <th>申请时间</th>
-              <th>用户名</th>
-              <th>素材名称</th>
-              <th>二创类型</th>
-              <th>创作者信息</th>
-              <th>份数</th>
-              <th>用途</th>
-              <th>状态</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in rows" :key="row.id">
-              <td class="text-sm text-muted">{{ formatDate(row.created_at) }}</td>
-              <td style="font-weight:500">{{ row.username || row.user?.username || '-' }}</td>
-              <td>{{ row.item_name || row.item?.name || '-' }}</td>
-              <td>{{ row.creation_type || '-' }}</td>
-              <td class="text-sm">
-                <div v-if="row.creator_name">{{ row.creator_name }}</div>
-                <div v-if="row.creator_contact" class="text-muted">{{ row.creator_contact }}</div>
-              </td>
-              <td>{{ row.quantity != null ? `${row.quantity} 份` : '-' }}</td>
-              <td class="text-sm text-muted" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-                {{ row.usage || '-' }}
-              </td>
-              <td>
-                <span class="status-badge" :class="row.status">{{ statusLabel(row.status) }}</span>
-              </td>
-              <td>
-                <button
-                  v-if="row.status === 'pending'"
-                  class="btn btn-primary btn-sm"
-                  @click="openDecide(row)"
-                >
-                  审批
-                </button>
-                <button v-else class="btn btn-ghost btn-sm" @click="openDecide(row)">查看</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-
-        <!-- Pagination -->
-        <div v-if="total > pageSize" class="pagination">
-          <span class="pagination-info">第 {{ page }} / {{ totalPages }} 页，共 {{ total }} 条</span>
-          <div class="pagination-controls">
-            <button class="page-btn" :disabled="page <= 1" @click="changePage(page - 1)">«</button>
-            <template v-for="p in visiblePages" :key="p">
-              <button class="page-btn" :class="{ active: p === page }" @click="changePage(p)">{{ p }}</button>
-            </template>
-            <button class="page-btn" :disabled="page >= totalPages" @click="changePage(page + 1)">»</button>
-          </div>
-        </div>
-      </div>
       <!-- Table: Buyback -->
-      <div v-if="activeTab === 'buyback'" class="table-container table-row-hover">
+      <div class="table-container table-row-hover">
         <div class="table-toolbar">
           <span class="table-title">素材回购申请 - 共 {{ total }} 条</span>
         </div>
@@ -211,9 +59,9 @@
         <div v-if="total > pageSize" class="pagination">
           <span class="pagination-info">第 {{ page }} / {{ totalPages }} 页，共 {{ total }} 条</span>
           <div class="pagination-controls">
-            <button class="page-btn" :disabled="page <= 1" @click="changePage(page - 1)">«</button>
+            <button class="page-btn" :disabled="page <= 1" @click="changePage(page - 1)">&laquo;</button>
             <template v-for="p in visiblePages" :key="p"><button class="page-btn" :class="{ active: p === page }" @click="changePage(p)">{{ p }}</button></template>
-            <button class="page-btn" :disabled="page >= totalPages" @click="changePage(page + 1)">»</button>
+            <button class="page-btn" :disabled="page >= totalPages" @click="changePage(page + 1)">&raquo;</button>
           </div>
         </div>
       </div>
@@ -224,30 +72,14 @@
       <div class="modal-dialog">
         <div class="modal-header">
           <span class="modal-title">{{ decideModal.row?.status === 'pending' ? '审批申请' : '申请详情' }}</span>
-          <button class="modal-close" @click="decideModal.show = false">✕</button>
+          <button class="modal-close" @click="decideModal.show = false">&times;</button>
         </div>
         <div class="modal-body">
-          <!-- Application details -->
           <div class="import-desc mb-3">
             <div class="import-desc-title">申请信息</div>
-            <template v-if="activeTab === 'platform'">
-              <p>用户：{{ decideModal.row?.user_id?.username || '-' }}</p>
-              <p>当前平台：{{ decideModal.row?.payload?.old_platform || '-' }}</p>
-              <p>申请改为：{{ decideModal.row?.payload?.new_platform || '-' }}</p>
-              <p v-if="decideModal.row?.payload?.reason">原因：{{ decideModal.row?.payload?.reason }}</p>
-            </template>
-            <template v-else-if="activeTab === 'print'">
-              <p>用户：{{ decideModal.row?.user_id?.username || '-' }}</p>
-              <p>素材：{{ decideModal.row?.payload?.item_name || '-' }}</p>
-              <p>二创类型：{{ decideModal.row?.payload?.derivative_type || '-' }}</p>
-              <p v-if="decideModal.row?.payload?.copies">份数：{{ decideModal.row?.payload?.copies }} 份</p>
-              <p v-if="decideModal.row?.payload?.description">用途：{{ decideModal.row?.payload?.description }}</p>
-            </template>
-            <template v-else>
-              <p>用户：{{ decideModal.row?.user_id?.username || '-' }}</p>
-              <p>素材：{{ decideModal.row?.payload?.item_name || '-' }}</p>
-              <p v-if="decideModal.row?.payload?.reason">回购原因：{{ decideModal.row?.payload?.reason }}</p>
-            </template>
+            <p>用户：{{ decideModal.row?.user_id?.username || '-' }}</p>
+            <p>素材：{{ decideModal.row?.payload?.item_name || '-' }}</p>
+            <p v-if="decideModal.row?.payload?.reason">回购原因：{{ decideModal.row?.payload?.reason }}</p>
           </div>
 
           <div v-if="decideModal.row?.status === 'pending'">
@@ -260,7 +92,7 @@
             </div>
             <div class="form-group">
               <label class="form-label">备注（可选）</label>
-              <textarea v-model="decideModal.remark" class="form-textarea" rows="3" placeholder="审批备注，将通知给用户..." />
+              <textarea v-model="decideModal.remark" class="form-textarea" rows="3" placeholder="审批备注..." />
             </div>
           </div>
           <div v-else>
@@ -300,13 +132,11 @@ import { applicationsAPI } from '../api/index.js'
 
 const addToast = inject('addToast')
 
-const activeTab = ref('platform')
 const rows = ref([])
 const total = ref(0)
 const page = ref(1)
 const pageSize = 20
 const loading = ref(false)
-const pendingCount = ref({ platform: 0, print: 0, buyback: 0 })
 
 const filters = ref({ status: '' })
 
@@ -319,41 +149,20 @@ const visiblePages = computed(() => {
   return pages
 })
 
-function tabType() {
-  if (activeTab.value === 'platform') return 'platform_change'
-  if (activeTab.value === 'print') return 'print_report'
-  return 'buyback'
-}
-
 async function loadData() {
   loading.value = true
   try {
-    const params = { page: page.value, limit: pageSize, type: tabType() }
+    const params = { page: page.value, limit: pageSize, type: 'buyback' }
     if (filters.value.status) params.status = filters.value.status
     const res = await applicationsAPI.getAll(params)
     rows.value = res.applications || res.data || []
     total.value = res.total || rows.value.length
-
-    // Count pending
-    if (!filters.value.status) {
-      const pending = rows.value.filter(r => r.status === 'pending').length
-      if (activeTab.value === 'platform') pendingCount.value.platform = pending
-      else if (activeTab.value === 'print') pendingCount.value.print = pending
-      else pendingCount.value.buyback = pending
-    }
   } catch {
     rows.value = []
     total.value = 0
   } finally {
     loading.value = false
   }
-}
-
-function switchTab(tab) {
-  activeTab.value = tab
-  page.value = 1
-  filters.value.status = ''
-  loadData()
 }
 
 function search() { page.value = 1; loadData() }
@@ -370,7 +179,6 @@ function statusLabel(s) {
   return map[s] || s
 }
 
-// Decide Modal
 const decideModal = ref({
   show: false, row: null, loading: false,
   decision: 'approved', remark: ''

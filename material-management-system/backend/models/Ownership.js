@@ -6,13 +6,14 @@ const ownershipSchema = new mongoose.Schema(
     item_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Item', required: true },
     acquisition_type: {
       type: String,
-      enum: ['self', 'sponsored', 'transfer_in', 'transfer_out'],
+      enum: ['self', 'sponsor', 'sponsored', 'sponsor_pending', 'transfer_in', 'transfer_out'],
       required: true
     },
     points_delta: { type: Number, required: true },
     occurred_at: { type: Date, required: true },
     delivery_link: { type: String },
     source_user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    target_user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     replaced_by: { type: mongoose.Schema.Types.ObjectId, ref: 'Ownership' },
     active: { type: Boolean, default: true }
   },

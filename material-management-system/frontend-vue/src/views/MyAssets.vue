@@ -7,11 +7,6 @@
     <!-- User Info Bar -->
     <div class="info-grid" v-if="userStore.summary">
       <div class="info-card">
-        <div class="info-card-label">当前平台</div>
-        <div class="info-card-value">{{ userStore.summary.platform || '-' }}</div>
-        <div class="info-card-sub">平台 ID：{{ userStore.summary.platform_id || '未设置' }}</div>
-      </div>
-      <div class="info-card">
         <div class="info-card-label">累计积分</div>
         <div class="info-card-value text-primary">{{ (userStore.summary.total_points || 0).toLocaleString() }}</div>
       </div>
@@ -41,10 +36,11 @@
         @keyup.enter="loadAssets(1)"
       />
       <select v-model="filters.acquisition_type" class="form-input" style="min-width:120px;">
-        <option value="">全部类型</option>
+        <option value="">全部获取类型</option>
         <option value="self">自用</option>
-        <option value="transfer">接转</option>
+        <option value="sponsor">已赞助</option>
         <option value="sponsored">被赞助</option>
+        <option value="sponsor_pending">赞助待定</option>
       </select>
       <button class="btn btn-primary btn-sm" @click="loadAssets(1)">筛选</button>
       <button class="btn btn-ghost btn-sm" @click="resetFilters">重置</button>
@@ -70,6 +66,7 @@
         :key="item._id || item.id"
         :ownership="item"
         @transfer="openTransferModal"
+        @register="openRegisterModal"
       />
     </div>
 
@@ -86,27 +83,18 @@
           </div>
 
           <div class="alert alert-warning" style="margin-bottom:16px;">
-            ⚠️ 转让后不可撤销，素材将从您的账户移出，请谨慎操作！
+            转让后不可撤销，素材将从您的账户移出，请谨慎操作！
           </div>
 
           <div v-if="!transferModal.confirming">
-            <p class="text-sm text-muted mb-3">请填写接转方信息（至少填写一项）：</p>
+            <p class="text-sm text-muted mb-3">请填写接转方信息：</p>
             <div class="form-group">
-              <label class="form-label">接转方平台</label>
-              <select v-model="transferForm.platform" class="form-input">
-                <option value="">请选择</option>
-                <option value="易次元">易次元</option>
-                <option value="橙光">橙光</option>
-                <option value="闪艺">闪艺</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">接转方平台 ID</label>
-              <input v-model="transferForm.platform_id" type="text" class="form-input" placeholder="平台 ID" />
+              <label class="form-label">接转方 ID</label>
+              <input v-model="transferForm.target_id" type="text" class="form-input" placeholder="用户 ID" />
             </div>
             <div class="form-group">
               <label class="form-label">接转方 QQ</label>
-              <input v-model="transferForm.qq" type="text" class="form-input" placeholder="QQ 号码" />
+              <input v-model="transferForm.target_qq" type="text" class="form-input" placeholder="QQ 号码" />
             </div>
             <div v-if="transferError" class="form-error mb-2">{{ transferError }}</div>
             <div class="modal-actions">
@@ -118,9 +106,8 @@
           <div v-else>
             <p class="text-sm mb-3">请确认转让信息：</p>
             <div style="background:#f9fafb;padding:12px;border-radius:8px;font-size:0.875rem;margin-bottom:16px;">
-              <div v-if="transferForm.platform">平台：{{ transferForm.platform }}</div>
-              <div v-if="transferForm.platform_id">平台 ID：{{ transferForm.platform_id }}</div>
-              <div v-if="transferForm.qq">QQ：{{ transferForm.qq }}</div>
+              <div v-if="transferForm.target_id">ID：{{ transferForm.target_id }}</div>
+              <div v-if="transferForm.target_qq">QQ：{{ transferForm.target_qq }}</div>
             </div>
             <p class="text-sm text-danger font-bold">此操作不可撤销，确认后素材将立即转出。</p>
             <div v-if="transferError" class="form-error mb-2">{{ transferError }}</div>
@@ -130,6 +117,35 @@
                 {{ transferLoading ? '转让中...' : '确认转让' }}
               </button>
             </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Register Sponsor Modal -->
+    <Teleport to="body">
+      <div v-if="registerModal.visible" class="modal-overlay" @click.self="closeRegisterModal">
+        <div class="modal">
+          <div class="modal-header">
+            <span class="modal-title">登记被赞助方</span>
+            <button class="modal-close" @click="closeRegisterModal">✕</button>
+          </div>
+
+          <p class="text-sm text-muted mb-3">请填写被赞助方信息：</p>
+          <div class="form-group">
+            <label class="form-label">被赞助方 ID</label>
+            <input v-model="registerForm.target_id" type="text" class="form-input" placeholder="用户 ID" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">被赞助方 QQ</label>
+            <input v-model="registerForm.target_qq" type="text" class="form-input" placeholder="QQ 号码" />
+          </div>
+          <div v-if="registerError" class="form-error mb-2">{{ registerError }}</div>
+          <div class="modal-actions">
+            <button class="btn btn-ghost" @click="closeRegisterModal">取消</button>
+            <button class="btn btn-primary" @click="submitRegister" :disabled="registerLoading">
+              {{ registerLoading ? '登记中...' : '确认登记' }}
+            </button>
           </div>
         </div>
       </div>
@@ -155,13 +171,20 @@ const total = ref(0)
 const page = ref(1)
 const limit = ref(20)
 
-const topics = ['立绘', '通加', '场景', 'CG', '素材', '美工', '音乐']
+const topics = ['立绘', 'CG', '场景', '通加', 'UI', '打光', '空境', '微']
 const filters = reactive({ topic: '', artist: '', acquisition_type: '' })
 
+// Transfer Modal
 const transferModal = reactive({ visible: false, ownershipId: null, confirming: false })
-const transferForm = reactive({ platform: '', platform_id: '', qq: '' })
+const transferForm = reactive({ target_id: '', target_qq: '' })
 const transferError = ref('')
 const transferLoading = ref(false)
+
+// Register Sponsor Modal
+const registerModal = reactive({ visible: false, ownershipId: null })
+const registerForm = reactive({ target_id: '', target_qq: '' })
+const registerError = ref('')
+const registerLoading = ref(false)
 
 async function loadAssets(p = 1) {
   page.value = p
@@ -188,13 +211,13 @@ function resetFilters() {
   loadAssets(1)
 }
 
+// Transfer functions
 function openTransferModal(ownershipId) {
   transferModal.ownershipId = ownershipId
   transferModal.visible = true
   transferModal.confirming = false
-  transferForm.platform = ''
-  transferForm.platform_id = ''
-  transferForm.qq = ''
+  transferForm.target_id = ''
+  transferForm.target_qq = ''
   transferError.value = ''
 }
 
@@ -204,8 +227,8 @@ function closeTransferModal() {
 }
 
 function confirmTransfer() {
-  if (!transferForm.platform && !transferForm.platform_id && !transferForm.qq) {
-    transferError.value = '请至少填写一项接转方信息'
+  if (!transferForm.target_id && !transferForm.target_qq) {
+    transferError.value = '请至少填写 ID 或 QQ'
     return
   }
   transferError.value = ''
@@ -217,9 +240,8 @@ async function submitTransfer() {
   transferError.value = ''
   try {
     const data = { ownership_id: transferModal.ownershipId }
-    if (transferForm.platform) data.target_platform = transferForm.platform
-    if (transferForm.platform_id) data.target_platform_id = transferForm.platform_id
-    if (transferForm.qq) data.target_qq = transferForm.qq
+    if (transferForm.target_id) data.target_id = transferForm.target_id
+    if (transferForm.target_qq) data.target_qq = transferForm.target_qq
     const res = await assetsAPI.transfer(data)
     if (res.message && !res.error) {
       addToast('转让成功！', 'success')
@@ -233,6 +255,45 @@ async function submitTransfer() {
     transferError.value = '网络错误，请稍后重试'
   } finally {
     transferLoading.value = false
+  }
+}
+
+// Register sponsor functions
+function openRegisterModal(ownershipId) {
+  registerModal.ownershipId = ownershipId
+  registerModal.visible = true
+  registerForm.target_id = ''
+  registerForm.target_qq = ''
+  registerError.value = ''
+}
+
+function closeRegisterModal() {
+  registerModal.visible = false
+}
+
+async function submitRegister() {
+  if (!registerForm.target_id && !registerForm.target_qq) {
+    registerError.value = '请至少填写 ID 或 QQ'
+    return
+  }
+  registerLoading.value = true
+  registerError.value = ''
+  try {
+    const data = { ownership_id: registerModal.ownershipId }
+    if (registerForm.target_id) data.target_id = registerForm.target_id
+    if (registerForm.target_qq) data.target_qq = registerForm.target_qq
+    const res = await assetsAPI.registerSponsor(data)
+    if (res.message && !res.error) {
+      addToast('登记成功！', 'success')
+      closeRegisterModal()
+      loadAssets(page.value)
+    } else {
+      registerError.value = res.message || res.error || '登记失败'
+    }
+  } catch (e) {
+    registerError.value = '网络错误，请稍后重试'
+  } finally {
+    registerLoading.value = false
   }
 }
 

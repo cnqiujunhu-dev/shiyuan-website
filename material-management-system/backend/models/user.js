@@ -20,7 +20,7 @@ const userSchema = new mongoose.Schema(
     transfer_remaining: { type: Number, default: 0 },
     buyback_remaining: { type: Number, default: 0 },
     skip_queue_remaining: { type: Number, default: 0 },
-    platform_changed_at: { type: Date }
+    platform_changed_at: { type: Date } // legacy, kept for existing data
   },
   {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }

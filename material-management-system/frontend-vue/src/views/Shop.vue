@@ -1,7 +1,7 @@
 <template>
   <div class="page">
     <div class="page-header">
-      <h1 class="page-title">店铺授权</h1>
+      <h1 class="page-title">店铺素材</h1>
     </div>
 
     <!-- Filter Bar -->
@@ -31,8 +31,8 @@
     <!-- Empty State -->
     <div class="empty-state" v-else-if="!loading && items.length === 0">
       <div class="empty-state-icon">🏪</div>
-      <div class="empty-state-title">暂无商品</div>
-      <div class="empty-state-desc">店铺暂时没有商品，请稍后再来</div>
+      <div class="empty-state-title">暂无素材</div>
+      <div class="empty-state-desc">店铺暂时没有素材，请稍后再来</div>
     </div>
 
     <!-- Shop Grid -->
@@ -52,25 +52,27 @@
           <span v-else>🖼️</span>
         </div>
         <div class="shop-card-body">
+          <!-- SKU Code -->
+          <div class="text-xs text-muted" v-if="item.sku_code" style="margin-bottom:4px;">
+            SKU：{{ item.sku_code }}
+          </div>
           <div class="shop-card-name" :title="item.name">{{ item.name }}</div>
           <div class="shop-card-meta">
             <span v-if="item.artist">画师：{{ item.artist }}</span>
           </div>
-          <div class="asset-tags" v-if="getTags(item).length" style="margin-bottom:8px;">
-            <span
-              v-for="tag in getTags(item)"
-              :key="tag"
-              class="badge badge-primary"
-            >{{ tag }}</span>
-          </div>
-          <div class="shop-card-price">
+          <div class="shop-card-price" style="display:flex;align-items:center;gap:8px;">
             <span v-if="item.price">¥{{ item.price }}</span>
             <span v-else class="text-muted text-sm">价格面议</span>
+            <!-- Status Badge -->
+            <span
+              :class="['badge', item.status === 'completed' ? 'badge-default' : 'badge-success']"
+              style="font-size:0.72rem;"
+            >{{ statusLabel(item.status) }}</span>
           </div>
           <!-- 优先购标记 -->
-          <div v-if="item.priority_only" class="badge badge-warning" style="margin-bottom:6px;font-size:0.72rem;">⭐ VIP 优先购</div>
+          <div v-if="item.priority_only" class="badge badge-warning" style="margin-bottom:6px;font-size:0.72rem;">VIP 优先购</div>
           <!-- 排队限购标记 -->
-          <div v-if="item.queue_enabled" class="badge badge-default" style="margin-bottom:6px;font-size:0.72rem;">🔒 限量排队</div>
+          <div v-if="item.queue_enabled" class="badge badge-default" style="margin-bottom:6px;font-size:0.72rem;">限量排队</div>
 
           <!-- 自购按钮（普通商品） -->
           <button
@@ -125,23 +127,14 @@
           </div>
 
           <div v-if="!sponsorModal.confirming">
-            <p class="text-sm text-muted mb-3">请填写被赞助方信息（至少填写一项）：</p>
+            <p class="text-sm text-muted mb-3">请填写被赞助方信息（留空则创建赞助待定）：</p>
             <div class="form-group">
-              <label class="form-label">被赞助方平台</label>
-              <select v-model="sponsorForm.platform" class="form-input">
-                <option value="">请选择</option>
-                <option value="易次元">易次元</option>
-                <option value="橙光">橙光</option>
-                <option value="闪艺">闪艺</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">被赞助方平台 ID</label>
-              <input v-model="sponsorForm.platform_id" type="text" class="form-input" placeholder="平台 ID" />
+              <label class="form-label">被赞助方 ID</label>
+              <input v-model="sponsorForm.target_id" type="text" class="form-input" placeholder="用户 ID（可选）" />
             </div>
             <div class="form-group">
               <label class="form-label">被赞助方 QQ</label>
-              <input v-model="sponsorForm.qq" type="text" class="form-input" placeholder="QQ 号码" />
+              <input v-model="sponsorForm.target_qq" type="text" class="form-input" placeholder="QQ 号码（可选）" />
             </div>
             <div v-if="sponsorError" class="form-error mb-2">{{ sponsorError }}</div>
             <div class="modal-actions">
@@ -154,11 +147,11 @@
             <p class="text-sm mb-3">请确认赞助信息：</p>
             <div style="background:#f9fafb;padding:12px;border-radius:8px;font-size:0.875rem;margin-bottom:16px;">
               <div><strong>素材：</strong>{{ sponsorModal.item?.name }}</div>
-              <div v-if="sponsorForm.platform"><strong>平台：</strong>{{ sponsorForm.platform }}</div>
-              <div v-if="sponsorForm.platform_id"><strong>平台 ID：</strong>{{ sponsorForm.platform_id }}</div>
-              <div v-if="sponsorForm.qq"><strong>QQ：</strong>{{ sponsorForm.qq }}</div>
+              <div v-if="sponsorForm.target_id"><strong>ID：</strong>{{ sponsorForm.target_id }}</div>
+              <div v-if="sponsorForm.target_qq"><strong>QQ：</strong>{{ sponsorForm.target_qq }}</div>
+              <div v-if="!sponsorForm.target_id && !sponsorForm.target_qq" class="text-muted">未指定接收方（赞助待定）</div>
             </div>
-            <div class="alert alert-warning">赞助后该素材将归属于对方，您无法撤销此操作。</div>
+            <div class="alert alert-warning">赞助后您将获得积分，素材将归属于对方。</div>
             <div v-if="sponsorError" class="form-error mb-2">{{ sponsorError }}</div>
             <div class="modal-actions">
               <button class="btn btn-ghost" @click="sponsorModal.confirming = false">返回</button>
@@ -189,13 +182,19 @@ const total = ref(0)
 const page = ref(1)
 const limit = ref(20)
 
-const topics = ['立绘', '通加', '场景', 'CG', '素材', '美工', '音乐']
+const topics = ['立绘', 'CG', '场景', '通加', 'UI', '打光', '空境', '微']
 const filters = reactive({ topic: '', artist: '' })
 
 const sponsorModal = reactive({ visible: false, item: null, confirming: false })
-const sponsorForm = reactive({ platform: '', platform_id: '', qq: '' })
+const sponsorForm = reactive({ target_id: '', target_qq: '' })
 const sponsorError = ref('')
 const sponsorLoading = ref(false)
+
+function statusLabel(status) {
+  if (status === 'completed') return '结车'
+  if (status === 'on_sale') return '在售'
+  return status || '在售'
+}
 
 async function loadItems(p = 1) {
   page.value = p
@@ -208,7 +207,7 @@ async function loadItems(p = 1) {
     items.value = res.data || res.items || []
     total.value = res.total || res.count || 0
   } catch (e) {
-    addToast('加载商品失败', 'error')
+    addToast('加载素材失败', 'error')
   } finally {
     loading.value = false
   }
@@ -218,13 +217,6 @@ function resetFilters() {
   filters.topic = ''
   filters.artist = ''
   loadItems(1)
-}
-
-function getTags(item) {
-  const t = item.tags
-  if (!t) return []
-  if (Array.isArray(t)) return t
-  return t.split(',').map(s => s.trim()).filter(Boolean)
 }
 
 async function doBuyItem(item, isSkipQueue = false) {
@@ -247,9 +239,8 @@ function openSponsorModal(item) {
   sponsorModal.item = item
   sponsorModal.visible = true
   sponsorModal.confirming = false
-  sponsorForm.platform = ''
-  sponsorForm.platform_id = ''
-  sponsorForm.qq = ''
+  sponsorForm.target_id = ''
+  sponsorForm.target_qq = ''
   sponsorError.value = ''
 }
 
@@ -259,10 +250,6 @@ function closeSponsorModal() {
 }
 
 function confirmSponsor() {
-  if (!sponsorForm.platform && !sponsorForm.platform_id && !sponsorForm.qq) {
-    sponsorError.value = '请至少填写一项被赞助方信息'
-    return
-  }
   sponsorError.value = ''
   sponsorModal.confirming = true
 }
@@ -275,12 +262,11 @@ async function submitSponsor() {
     const data = {
       item_id: item._id || item.id,
     }
-    if (sponsorForm.platform) data.target_platform = sponsorForm.platform
-    if (sponsorForm.platform_id) data.target_platform_id = sponsorForm.platform_id
-    if (sponsorForm.qq) data.target_qq = sponsorForm.qq
+    if (sponsorForm.target_id) data.target_id = sponsorForm.target_id
+    if (sponsorForm.target_qq) data.target_qq = sponsorForm.target_qq
     const res = await assetsAPI.sponsor(data)
     if (res.message && !res.error) {
-      addToast('赞助成功！', 'success')
+      addToast(res.message, 'success')
       closeSponsorModal()
     } else {
       sponsorError.value = res.message || res.error || '赞助失败'
