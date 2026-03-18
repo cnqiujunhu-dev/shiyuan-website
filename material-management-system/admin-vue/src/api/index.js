@@ -30,8 +30,9 @@ export const authAPI = {
 export const itemsAPI = {
   getAll: (params = {}) => request('/admin/items?' + new URLSearchParams(params)),
   create: (formData) => request('/admin/items', { method: 'POST', body: formData }),
-  update: (id, data) => request(`/admin/items/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  update: (id, data) => request(`/admin/items/${id}`, { method: 'PUT', body: data instanceof FormData ? data : JSON.stringify(data) }),
   getById: (id) => request(`/admin/items/${id}`),
+  importBatch: (data) => request('/admin/items/import', { method: 'POST', body: JSON.stringify(data) }),
   getOwnerships: (id, params = {}) => request(`/admin/items/${id}/ownerships?` + new URLSearchParams(params)),
 }
 
@@ -57,6 +58,7 @@ export const vipsAPI = {
 // Admin - Users
 export const usersAPI = {
   getAll: (params = {}) => request('/admin/users?' + new URLSearchParams(params)),
+  getById: (id) => request(`/admin/users/${id}`),
   update: (id, data) => request(`/admin/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 }
 

@@ -26,6 +26,27 @@ exports.getUsers = async (req, res) => {
   }
 };
 
+exports.getUserDetail = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const user = await User.findById(id).select('-password_hash').lean();
+    if (!user) return res.status(404).json({ message: '用户不存在' });
+
+    const Ownership = require('../../models/Ownership');
+    const ownerships = await Ownership.find({ user_id: id, active: true })
+      .populate('item_id', 'sku_code name artist price preview_url status')
+      .populate('source_user_id', 'username qq')
+      .populate('target_user_id', 'username qq')
+      .sort({ occurred_at: -1 })
+      .lean();
+
+    return res.json({ user, ownerships });
+  } catch (err) {
+    logger.error('getUserDetail error', { message: err.message });
+    return res.status(500).json({ message: '服务器错误' });
+  }
+};
+
 exports.updateUser = async (req, res) => {
   const { id } = req.params;
   const { platform, platform_id, qq } = req.body;

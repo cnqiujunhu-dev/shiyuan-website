@@ -7,12 +7,18 @@ const { syncUserVip } = require('../services/vipService');
 const logger = require('../config/logger');
 
 exports.getShopItems = async (req, res) => {
-  const { topic, artist, page = 1, limit = 20 } = req.query;
+  const { topic, artist, status, page = 1, limit = 20 } = req.query;
   try {
     const pageNum = Math.max(1, parseInt(page));
     const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
-    const filter = { status: 'on_sale' };
-    if (topic) filter.categories = topic;
+    const filter = {};
+    // 允许按状态筛选(在售/结车)，不显示下架商品
+    if (status && ['on_sale', 'completed'].includes(status)) {
+      filter.status = status;
+    } else {
+      filter.status = { $in: ['on_sale', 'completed'] };
+    }
+    if (topic) filter.topics = topic;
     if (artist) filter.artist = new RegExp(artist, 'i');
     const total = await Item.countDocuments(filter);
     const items = await Item.find(filter)

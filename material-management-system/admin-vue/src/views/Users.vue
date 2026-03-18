@@ -60,7 +60,10 @@
               </td>
               <td class="text-sm text-muted">{{ formatDate(row.created_at) }}</td>
               <td>
-                <button class="btn btn-ghost btn-sm" @click="openEdit(row)">编辑平台信息</button>
+                <div style="display:flex;gap:6px;">
+                  <router-link :to="`/users/${row._id || row.id}`" class="btn btn-primary btn-sm">详情</router-link>
+                  <button class="btn btn-ghost btn-sm" @click="openEdit(row)">编辑</button>
+                </div>
               </td>
             </tr>
           </tbody>

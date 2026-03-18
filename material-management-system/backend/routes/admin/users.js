@@ -7,6 +7,7 @@ const { requireRole } = require('../../middleware/roles');
 const adminGuard = [auth, requireRole('admin')];
 
 router.get('/', adminGuard, userController.getUsers);
+router.get('/:id', adminGuard, userController.getUserDetail);
 router.put('/:id', adminGuard, userController.updateUser);
 
 module.exports = router;

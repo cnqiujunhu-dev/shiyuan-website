@@ -10,6 +10,11 @@
         <option value="">全部题材</option>
         <option v-for="t in topics" :key="t" :value="t">{{ t }}</option>
       </select>
+      <select v-model="filters.status" class="form-input" style="min-width:100px;">
+        <option value="">全部状态</option>
+        <option value="on_sale">在售</option>
+        <option value="completed">结车</option>
+      </select>
       <input
         v-model="filters.artist"
         type="text"
@@ -183,7 +188,7 @@ const page = ref(1)
 const limit = ref(20)
 
 const topics = ['立绘', 'CG', '场景', '通加', 'UI', '打光', '空境', '微']
-const filters = reactive({ topic: '', artist: '' })
+const filters = reactive({ topic: '', artist: '', status: '' })
 
 const sponsorModal = reactive({ visible: false, item: null, confirming: false })
 const sponsorForm = reactive({ target_id: '', target_qq: '' })
@@ -202,6 +207,7 @@ async function loadItems(p = 1) {
   try {
     const params = { page: p, limit: limit.value }
     if (filters.topic) params.topic = filters.topic
+    if (filters.status) params.status = filters.status
     if (filters.artist) params.artist = filters.artist
     const res = await shopAPI.getItems(params)
     items.value = res.data || res.items || []
@@ -215,6 +221,7 @@ async function loadItems(p = 1) {
 
 function resetFilters() {
   filters.topic = ''
+  filters.status = ''
   filters.artist = ''
   loadItems(1)
 }

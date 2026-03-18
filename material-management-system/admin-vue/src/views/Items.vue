@@ -5,7 +5,10 @@
         <h1 class="page-title">商品列表</h1>
         <p class="page-subtitle">管理所有素材商品</p>
       </div>
-      <router-link to="/items/new" class="btn btn-primary">+ 新增商品</router-link>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-secondary" @click="showImport = !showImport">批量导入</button>
+        <router-link to="/items/new" class="btn btn-primary">+ 新增商品</router-link>
+      </div>
     </div>
 
     <!-- Search -->
@@ -25,6 +28,37 @@
       </div>
       <button class="btn btn-primary" @click="doSearch">搜索</button>
       <button class="btn btn-secondary" @click="resetSearch">重置</button>
+    </div>
+
+    <!-- Batch Import -->
+    <div v-if="showImport" class="table-container" style="margin-bottom:16px;">
+      <div class="table-toolbar">
+        <span class="table-title">批量导入商品</span>
+      </div>
+      <div style="padding:16px;">
+        <p class="text-sm text-muted" style="margin-bottom:8px;">请输入 JSON 数组，每个对象包含：sku_code, name(必填), artist(必填), price(必填), topics, categories, delivery_link, status</p>
+        <div style="background:#f9fafb;padding:8px 12px;border-radius:6px;font-size:0.8rem;margin-bottom:12px;overflow-x:auto;">
+          <pre style="margin:0;">[
+  { "sku_code": "260101", "name": "素材A", "artist": "画师X", "price": 100, "topics": ["立绘","CG"], "delivery_link": "https://..." },
+  { "sku_code": "260102", "name": "素材B", "artist": "画师Y", "price": 200, "topics": ["场景"] }
+]</pre>
+        </div>
+        <textarea
+          v-model="importJson"
+          class="form-input"
+          rows="6"
+          placeholder="粘贴 JSON 数组..."
+          style="font-family:monospace;font-size:0.85rem;width:100%;"
+        ></textarea>
+        <div v-if="importError" class="form-error" style="margin-top:6px;">{{ importError }}</div>
+        <div v-if="importResult" style="margin-top:6px;font-size:0.85rem;color:var(--text-secondary,#6b7280);">{{ importResult }}</div>
+        <div style="margin-top:10px;display:flex;gap:8px;">
+          <button class="btn btn-primary btn-sm" :disabled="importing" @click="doImport">
+            {{ importing ? '导入中...' : '开始导入' }}
+          </button>
+          <button class="btn btn-secondary btn-sm" @click="showImport = false">收起</button>
+        </div>
+      </div>
     </div>
 
     <!-- Table -->
@@ -118,6 +152,39 @@ const pageSize = 15
 const toggling = reactive({})
 
 const search = ref({ name: '', status: '' })
+
+// ── Batch Import ─────────────────────────────────────────────────────────────
+const showImport = ref(false)
+const importJson = ref('')
+const importError = ref('')
+const importResult = ref('')
+const importing = ref(false)
+
+async function doImport() {
+  importError.value = ''
+  importResult.value = ''
+  let rows
+  try {
+    rows = JSON.parse(importJson.value)
+    if (!Array.isArray(rows)) throw new Error('需要 JSON 数组')
+  } catch (e) {
+    importError.value = 'JSON 解析失败：' + e.message
+    return
+  }
+  importing.value = true
+  try {
+    const res = await itemsAPI.importBatch({ items: rows })
+    importResult.value = res.message || '导入完成'
+    if (res.errors?.length) {
+      importResult.value += '；失败项：' + res.errors.map(e => `${e.name}(${e.error})`).join('、')
+    }
+    fetchItems()
+  } catch {
+    importError.value = '导入请求失败'
+  } finally {
+    importing.value = false
+  }
+}
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
 const visiblePages = computed(() => {

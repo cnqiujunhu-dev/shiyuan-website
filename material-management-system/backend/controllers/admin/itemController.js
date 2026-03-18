@@ -93,6 +93,17 @@ exports.updateItem = async (req, res) => {
   }
 };
 
+exports.getItemById = async (req, res) => {
+  try {
+    const item = await Item.findById(req.params.id).lean();
+    if (!item) return res.status(404).json({ message: '商品不存在' });
+    return res.json({ item });
+  } catch (err) {
+    logger.error('getItemById error', { message: err.message });
+    return res.status(500).json({ message: '服务器错误' });
+  }
+};
+
 exports.getItems = async (req, res) => {
   const { page = 1, limit = 20, status, artist, name } = req.query;
   try {
@@ -111,6 +122,44 @@ exports.getItems = async (req, res) => {
     return res.json({ total, page: pageNum, items });
   } catch (err) {
     logger.error('getItems error', { message: err.message });
+    return res.status(500).json({ message: '服务器错误' });
+  }
+};
+
+exports.importItems = async (req, res) => {
+  const { items: rows } = req.body;
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return res.status(400).json({ message: '请提供商品数据数组' });
+  }
+  try {
+    const results = { success: 0, errors: [] };
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      try {
+        if (!row.name || !row.artist || !row.price) {
+          results.errors.push({ index: i, name: row.name || `第${i + 1}行`, error: '缺少必填字段(name/artist/price)' });
+          continue;
+        }
+        await Item.create({
+          sku_code: row.sku_code || undefined,
+          name: row.name,
+          artist: row.artist,
+          topics: Array.isArray(row.topics) ? row.topics : (row.topics ? [row.topics] : []),
+          categories: Array.isArray(row.categories) ? row.categories : (row.categories ? [row.categories] : []),
+          price: Number(row.price),
+          preview_url: row.preview_url || undefined,
+          delivery_link: row.delivery_link || '',
+          status: row.status || 'on_sale'
+        });
+        results.success++;
+      } catch (err) {
+        results.errors.push({ index: i, name: row.name || `第${i + 1}行`, error: err.message });
+      }
+    }
+    logger.info('Items batch imported', { success: results.success, errors: results.errors.length });
+    return res.json({ message: `成功导入 ${results.success} 件，失败 ${results.errors.length} 件`, ...results });
+  } catch (err) {
+    logger.error('importItems error', { message: err.message });
     return res.status(500).json({ message: '服务器错误' });
   }
 };

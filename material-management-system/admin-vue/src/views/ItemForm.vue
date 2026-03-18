@@ -93,10 +93,25 @@
       <div class="form-section">
         <div class="form-section-title">素材链接</div>
         <div class="form-grid">
-          <div class="form-group">
-            <label class="form-label">结车图/预览图 URL</label>
-            <input v-model="form.preview_url" type="text" class="form-input" placeholder="https://..." />
-            <span class="form-hint">商品列表和详情页展示的预览图地址</span>
+          <div class="form-group" style="grid-column:1/-1;">
+            <label class="form-label">结车图/预览图</label>
+            <div style="display:flex;gap:12px;align-items:flex-start;">
+              <div>
+                <label class="btn btn-secondary btn-sm" style="cursor:pointer;display:inline-block;">
+                  选择图片上传
+                  <input type="file" accept="image/*" style="display:none;" @change="onFileSelect" />
+                </label>
+                <span v-if="selectedFile" class="text-sm text-muted" style="margin-left:8px;">{{ selectedFile.name }}</span>
+                <div class="form-hint" style="margin-top:4px;">支持 jpg/png/webp/gif，最大 5MB</div>
+              </div>
+              <div v-if="previewSrc" style="flex-shrink:0;">
+                <img :src="previewSrc" alt="预览" style="max-width:120px;max-height:80px;border-radius:6px;border:1px solid var(--border,#e5e7eb);object-fit:cover;" />
+              </div>
+            </div>
+            <div style="margin-top:8px;">
+              <label class="form-label" style="font-size:0.8rem;color:var(--text-muted,#9ca3af);">或输入图片 URL</label>
+              <input v-model="form.preview_url" type="text" class="form-input" placeholder="https://..." @input="onUrlInput" />
+            </div>
           </div>
           <div class="form-group">
             <label class="form-label">下载链接 <span style="color:#ef4444;">*</span></label>
@@ -142,6 +157,9 @@ const topicInput = ref('')
 
 const availableTopics = ['立绘', 'CG', '场景', '通加', 'UI', '打光', '空境', '微']
 
+const selectedFile = ref(null)
+const previewSrc = ref('')
+
 const form = ref({
   sku_code: '',
   name: '',
@@ -153,6 +171,21 @@ const form = ref({
   preview_url: '',
   delivery_link: ''
 })
+
+function onFileSelect(e) {
+  const file = e.target.files[0]
+  if (!file) return
+  selectedFile.value = file
+  previewSrc.value = URL.createObjectURL(file)
+  form.value.preview_url = '' // 文件上传优先，清除URL
+}
+
+function onUrlInput() {
+  if (form.value.preview_url) {
+    selectedFile.value = null
+    previewSrc.value = form.value.preview_url
+  }
+}
 
 // ── Tag management ────────────────────────────────────────────────────────────
 function addTag() {
@@ -206,6 +239,7 @@ async function loadItem() {
       preview_url: item.preview_url || '',
       delivery_link: item.delivery_link || ''
     }
+    if (item.preview_url) previewSrc.value = item.preview_url
   } catch {
     addToast('加载商品信息失败', 'error')
   } finally {
@@ -220,31 +254,27 @@ async function handleSubmit() {
 
   saving.value = true
   try {
-    if (isEdit.value) {
-      await itemsAPI.update(route.params.id, {
-        sku_code: form.value.sku_code,
-        name: form.value.name,
-        artist: form.value.artist,
-        price: Number(form.value.price),
-        status: form.value.status,
-        topics: form.value.topics,
-        categories: form.value.categories,
-        preview_url: form.value.preview_url,
-        delivery_link: form.value.delivery_link
-      })
+    const fd = new FormData()
+    fd.append('sku_code', form.value.sku_code)
+    fd.append('name', form.value.name)
+    fd.append('artist', form.value.artist)
+    fd.append('price', String(Number(form.value.price)))
+    fd.append('status', form.value.status)
+    fd.append('topics', JSON.stringify(form.value.topics))
+    fd.append('categories', JSON.stringify(form.value.categories))
+    fd.append('delivery_link', form.value.delivery_link)
+    if (selectedFile.value) {
+      fd.append('preview', selectedFile.value)
     } else {
-      const fd = new FormData()
-      fd.append('sku_code', form.value.sku_code)
-      fd.append('name', form.value.name)
-      fd.append('artist', form.value.artist)
-      fd.append('price', String(Number(form.value.price)))
-      fd.append('status', form.value.status)
-      fd.append('topics', JSON.stringify(form.value.topics))
-      fd.append('categories', JSON.stringify(form.value.categories))
       fd.append('preview_url', form.value.preview_url)
-      fd.append('delivery_link', form.value.delivery_link)
+    }
+
+    if (isEdit.value) {
+      await itemsAPI.update(route.params.id, fd)
+    } else {
       await itemsAPI.create(fd)
     }
+    addToast(isEdit.value ? '商品已更新' : '商品创建成功')
     router.push('/items')
   } catch (e) {
     submitError.value = e?.message || '操作失败，请重试'
