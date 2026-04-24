@@ -20,10 +20,23 @@ const registerValidation = [
     .withMessage('用户名长度须为 3-20 个字符')
     .matches(/^[a-zA-Z0-9_\u4e00-\u9fa5]+$/)
     .withMessage('用户名只能包含字母、数字、下划线或中文'),
-  body('email').optional().isEmail().normalizeEmail().withMessage('邮箱格式不正确'),
-  body('password').isLength({ min: 6 }).withMessage('密码至少 6 个字符')
+  body('email').isEmail().normalizeEmail().withMessage('邮箱格式不正确'),
+  body('password').isLength({ min: 6 }).withMessage('密码至少 6 个字符'),
+  body('code').trim().isLength({ min: 6, max: 6 }).withMessage('验证码格式不正确')
 ];
 
+const registerCodeValidation = [
+  body('username')
+    .optional()
+    .trim()
+    .isLength({ min: 3, max: 20 })
+    .withMessage('用户名长度须为 3-20 个字符')
+    .matches(/^[a-zA-Z0-9_\u4e00-\u9fa5]+$/)
+    .withMessage('用户名只能包含字母、数字、下划线或中文'),
+  body('email').isEmail().normalizeEmail().withMessage('邮箱格式不正确')
+];
+
+router.post('/register/send-code', authLimiter, registerCodeValidation, authController.sendRegisterCode);
 router.post('/register', authLimiter, registerValidation, authController.register);
 router.post('/login', authLimiter, [
   body('username').trim().notEmpty().withMessage('请输入用户名'),

@@ -5,21 +5,75 @@ const User = require('../../models/User');
 const auditService = require('../../services/auditService');
 const logger = require('../../config/logger');
 
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function buildDateRangeStart(value) {
+  return new Date(value);
+}
+
+function buildDateRangeEnd(value) {
+  const date = new Date(value);
+  if (!Number.isNaN(date.getTime()) && /^\d{4}-\d{2}-\d{2}$/.test(String(value))) {
+    date.setHours(23, 59, 59, 999);
+  }
+  return date;
+}
+
 exports.getTransfers = async (req, res) => {
-  const { page = 1, limit = 20 } = req.query;
+  const { start_date, end_date, user, page = 1, limit = 20 } = req.query;
   try {
     const pageNum = Math.max(1, parseInt(page));
     const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
-    const filter = { acquisition_type: { $in: ['transfer_out', 'transfer_in'] } };
+    const filter = { acquisition_type: 'transfer_out' };
+    if (start_date || end_date) {
+      filter.occurred_at = {};
+      if (start_date) filter.occurred_at.$gte = buildDateRangeStart(start_date);
+      if (end_date) filter.occurred_at.$lte = buildDateRangeEnd(end_date);
+    }
+    if (user) {
+      const keyword = String(user).trim();
+      const userRegex = new RegExp(escapeRegExp(keyword), 'i');
+      const matchedUsers = await User.find({
+        $or: [
+          { username: userRegex },
+          { qq: userRegex },
+          { platform_id: userRegex }
+        ]
+      })
+        .select('_id')
+        .lean();
+      if (matchedUsers.length === 0) {
+        return res.json({ total: 0, page: pageNum, transfers: [] });
+      }
+      const userIds = matchedUsers.map((matchedUser) => matchedUser._id);
+      filter.$or = [{ user_id: { $in: userIds } }, { target_user_id: { $in: userIds } }];
+    }
     const total = await Ownership.countDocuments(filter);
-    const transfers = await Ownership.find(filter)
+    const transferOwnerships = await Ownership.find(filter)
       .sort({ occurred_at: -1 })
       .skip((pageNum - 1) * limitNum)
       .limit(limitNum)
-      .populate('user_id', 'username qq platform platform_id')
+      .populate('user_id', 'username qq platform platform_id vip_level')
+      .populate('target_user_id', 'username qq platform platform_id')
       .populate('item_id', 'name artist price')
-      .populate('source_user_id', 'username qq platform platform_id')
       .lean();
+    const transfers = transferOwnerships.map((ownership) => ({
+      id: ownership._id,
+      _id: ownership._id,
+      created_at: ownership.occurred_at,
+      item_name: ownership.item_id?.name || '',
+      item: ownership.item_id,
+      from_platform: ownership.user_id?.platform || '',
+      from_id: ownership.user_id?.platform_id || ownership.user_id?.username || '',
+      from_qq: ownership.user_id?.qq || '',
+      from_vip_level: ownership.user_id?.vip_level || 0,
+      to_platform: ownership.target_user_id?.platform || '',
+      to_id: ownership.target_user_id?.platform_id || ownership.target_user_id?.username || '',
+      to_qq: ownership.target_user_id?.qq || '',
+      rolled_back: ownership.active === false
+    }));
     return res.json({ total, page: pageNum, transfers });
   } catch (err) {
     logger.error('getTransfers error', { message: err.message });
@@ -32,7 +86,8 @@ exports.rollbackTransfer = async (req, res) => {
   try {
     const transferOutOwnership = await Ownership.findOne({
       _id: id,
-      acquisition_type: 'transfer_out'
+      acquisition_type: 'transfer_out',
+      active: true
     });
     if (!transferOutOwnership) {
       return res.status(404).json({ message: '转让记录不存在' });

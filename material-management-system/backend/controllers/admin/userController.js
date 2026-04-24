@@ -2,6 +2,11 @@ const User = require('../../models/User');
 const auditService = require('../../services/auditService');
 const logger = require('../../config/logger');
 
+function serializeUser(userDoc) {
+  const user = userDoc.toObject ? userDoc.toObject() : userDoc;
+  return { ...user, id: String(user._id) };
+}
+
 exports.getUsers = async (req, res) => {
   const { q, page = 1, limit = 20 } = req.query;
   try {
@@ -19,7 +24,7 @@ exports.getUsers = async (req, res) => {
       .skip((pageNum - 1) * limitNum)
       .limit(limitNum)
       .lean();
-    return res.json({ total, page: pageNum, users });
+    return res.json({ total, page: pageNum, users: users.map(serializeUser) });
   } catch (err) {
     logger.error('getUsers error', { message: err.message });
     return res.status(500).json({ message: '服务器错误' });
@@ -40,7 +45,7 @@ exports.getUserDetail = async (req, res) => {
       .sort({ occurred_at: -1 })
       .lean();
 
-    return res.json({ user, ownerships });
+    return res.json({ user: serializeUser(user), ownerships });
   } catch (err) {
     logger.error('getUserDetail error', { message: err.message });
     return res.status(500).json({ message: '服务器错误' });

@@ -8,6 +8,70 @@ const { syncUserVip } = require('../../services/vipService');
 const auditService = require('../../services/auditService');
 const logger = require('../../config/logger');
 
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function buildDateRangeStart(value) {
+  return new Date(value);
+}
+
+function buildDateRangeEnd(value) {
+  const date = new Date(value);
+  if (!Number.isNaN(date.getTime()) && /^\d{4}-\d{2}-\d{2}$/.test(String(value))) {
+    date.setHours(23, 59, 59, 999);
+  }
+  return date;
+}
+
+function resolveOccurredAt(record) {
+  return record.date || record.occurred_at ? new Date(record.date || record.occurred_at) : new Date();
+}
+
+function buildTransactionDocFromOwnership({ acquisitionType, actorId, targetId, item, pointsDelta, deliveryLink, occurredAt }) {
+  const price = pointsDelta > 0 ? pointsDelta : item.price;
+
+  if (acquisitionType === 'self') {
+    return {
+      type: 'purchase_self',
+      actor_id: actorId,
+      item_id: item._id,
+      price,
+      points_change: pointsDelta,
+      has_delivery_link: Boolean(deliveryLink || item.delivery_link),
+      occurred_at: occurredAt
+    };
+  }
+
+  if (acquisitionType === 'sponsor' || acquisitionType === 'sponsor_pending') {
+    return {
+      type: 'purchase_sponsor',
+      actor_id: actorId,
+      target_id: targetId,
+      item_id: item._id,
+      price,
+      points_change: pointsDelta,
+      has_delivery_link: false,
+      occurred_at: occurredAt
+    };
+  }
+
+  if (acquisitionType === 'sponsored') {
+    return {
+      type: 'sponsored',
+      actor_id: actorId,
+      target_id: targetId,
+      item_id: item._id,
+      price,
+      points_change: pointsDelta,
+      has_delivery_link: true,
+      occurred_at: occurredAt
+    };
+  }
+
+  return null;
+}
+
 async function findOrCreateUser(qq, platform, platformId) {
   let user = null;
   if (qq) user = await User.findOne({ qq });
@@ -48,7 +112,7 @@ exports.importTransactions = async (req, res) => {
   for (let i = 0; i < records.length; i++) {
     const rec = records[i];
     try {
-      const occurredAt = rec.date || rec.occurred_at ? new Date(rec.date || rec.occurred_at) : new Date();
+      const occurredAt = resolveOccurredAt(rec);
 
       let item = null;
       if (rec.item_id) {
@@ -59,6 +123,11 @@ exports.importTransactions = async (req, res) => {
       }
       if (!item) {
         errors.push({ index: i, record: rec, error: '找不到商品' });
+        continue;
+      }
+      const normalizedPrice = rec.price == null ? Number(item.price) : Number(rec.price);
+      if (Number.isNaN(normalizedPrice)) {
+        errors.push({ index: i, record: rec, error: 'price 字段不是有效数字' });
         continue;
       }
 
@@ -76,7 +145,7 @@ exports.importTransactions = async (req, res) => {
             user_id: actor._id,
             item_id: item._id,
             acquisition_type: 'sponsor',
-            points_delta: item.price,
+            points_delta: normalizedPrice,
             occurred_at: occurredAt,
             target_user_id: target._id,
             active: true
@@ -99,8 +168,8 @@ exports.importTransactions = async (req, res) => {
             actor_id: actor._id,
             target_id: target._id,
             item_id: item._id,
-            price: item.price,
-            points_change: item.price,
+            price: normalizedPrice,
+            points_change: normalizedPrice,
             has_delivery_link: false,
             occurred_at: occurredAt
           },
@@ -109,15 +178,15 @@ exports.importTransactions = async (req, res) => {
             actor_id: target._id,
             target_id: actor._id,
             item_id: item._id,
-            price: item.price,
+            price: normalizedPrice,
             points_change: 0,
             has_delivery_link: true,
             occurred_at: occurredAt
           }
         ]);
 
-        actor.points_total += item.price;
-        actor.annual_spend += item.price;
+        actor.points_total += normalizedPrice;
+        actor.annual_spend += normalizedPrice;
         await actor.save();
         await syncUserVip(actor._id);
       } else {
@@ -125,7 +194,7 @@ exports.importTransactions = async (req, res) => {
           user_id: actor._id,
           item_id: item._id,
           acquisition_type: 'self',
-          points_delta: item.price,
+          points_delta: normalizedPrice,
           occurred_at: occurredAt,
           delivery_link: item.delivery_link,
           active: true
@@ -135,14 +204,14 @@ exports.importTransactions = async (req, res) => {
           type: 'purchase_self',
           actor_id: actor._id,
           item_id: item._id,
-          price: item.price,
-          points_change: item.price,
+          price: normalizedPrice,
+          points_change: normalizedPrice,
           has_delivery_link: true,
           occurred_at: occurredAt
         });
 
-        actor.points_total += item.price;
-        actor.annual_spend += item.price;
+        actor.points_total += normalizedPrice;
+        actor.annual_spend += normalizedPrice;
         await actor.save();
         await syncUserVip(actor._id);
       }
@@ -172,6 +241,7 @@ exports.importAuthorizations = async (req, res) => {
   for (let i = 0; i < records.length; i++) {
     const rec = records[i];
     try {
+      const occurredAt = resolveOccurredAt(rec);
       // Find item by name
       const item = await Item.findOne({ name: new RegExp(rec.name.trim(), 'i') });
       if (!item) {
@@ -202,7 +272,7 @@ exports.importAuthorizations = async (req, res) => {
         item_id: item._id,
         acquisition_type: mappedType1,
         points_delta: points1,
-        occurred_at: new Date(),
+        occurred_at: occurredAt,
         delivery_link: delivery1 || (mappedType1 === 'self' ? item.delivery_link : undefined),
         active: true
       });
@@ -231,7 +301,7 @@ exports.importAuthorizations = async (req, res) => {
           item_id: item._id,
           acquisition_type: mappedType2,
           points_delta: points2,
-          occurred_at: new Date(),
+          occurred_at: occurredAt,
           delivery_link: delivery2 || (mappedType2 === 'sponsored' ? item.delivery_link : undefined),
           source_user_id: mappedType2 === 'sponsored' ? user1._id : undefined,
           active: true
@@ -253,6 +323,44 @@ exports.importAuthorizations = async (req, res) => {
         }
       }
 
+      const transactionDocs = [];
+      const user2Id = type2 && (id2 || qq2) ? (await User.findOne({
+        $or: [
+          ...(qq2 ? [{ qq: qq2 }] : []),
+          ...(id2 ? [{ platform_id: id2 }] : [])
+        ]
+      }).select('_id').lean())?._id : null;
+
+      const tx1 = buildTransactionDocFromOwnership({
+        acquisitionType: mappedType1,
+        actorId: user1._id,
+        targetId: mappedType1 === 'sponsor' ? user2Id : undefined,
+        item,
+        pointsDelta: points1,
+        deliveryLink: delivery1,
+        occurredAt
+      });
+      if (tx1) transactionDocs.push(tx1);
+
+      if (type2 && (id2 || qq2)) {
+        const mappedType2 = typeMap[type2] || type2;
+        const user2 = await findOrCreateUser(qq2, null, id2);
+        const tx2 = buildTransactionDocFromOwnership({
+          acquisitionType: mappedType2,
+          actorId: user2._id,
+          targetId: mappedType2 === 'sponsored' ? user1._id : undefined,
+          item,
+          pointsDelta: points2,
+          deliveryLink: delivery2,
+          occurredAt
+        });
+        if (tx2) transactionDocs.push(tx2);
+      }
+
+      if (transactionDocs.length > 0) {
+        await Transaction.create(transactionDocs);
+      }
+
       imported.push({ index: i, name: rec.name, user1: user1.username });
     } catch (err) {
       errors.push({ index: i, record: rec, error: err.message });
@@ -265,14 +373,47 @@ exports.importAuthorizations = async (req, res) => {
 };
 
 exports.getTransactions = async (req, res) => {
-  const { type, user_id, item_id, page = 1, limit = 20 } = req.query;
+  const {
+    type,
+    user,
+    user_id,
+    item_id,
+    date_from,
+    date_to,
+    page = 1,
+    limit = 20
+  } = req.query;
   try {
     const pageNum = Math.max(1, parseInt(page));
     const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
     const filter = {};
     if (type) filter.type = type;
-    if (user_id) filter.$or = [{ actor_id: user_id }, { target_id: user_id }];
     if (item_id) filter.item_id = item_id;
+    if (user_id) {
+      filter.$or = [{ actor_id: user_id }, { target_id: user_id }];
+    } else if (user) {
+      const keyword = String(user).trim();
+      const userRegex = new RegExp(escapeRegExp(keyword), 'i');
+      const matchedUsers = await User.find({
+        $or: [
+          { username: userRegex },
+          { qq: userRegex },
+          { platform_id: userRegex }
+        ]
+      })
+        .select('_id')
+        .lean();
+      if (matchedUsers.length === 0) {
+        return res.json({ total: 0, page: pageNum, transactions: [] });
+      }
+      const userIds = matchedUsers.map((matchedUser) => matchedUser._id);
+      filter.$or = [{ actor_id: { $in: userIds } }, { target_id: { $in: userIds } }];
+    }
+    if (date_from || date_to) {
+      filter.occurred_at = {};
+      if (date_from) filter.occurred_at.$gte = buildDateRangeStart(date_from);
+      if (date_to) filter.occurred_at.$lte = buildDateRangeEnd(date_to);
+    }
     const total = await Transaction.countDocuments(filter);
     const transactions = await Transaction.find(filter)
       .sort({ occurred_at: -1 })

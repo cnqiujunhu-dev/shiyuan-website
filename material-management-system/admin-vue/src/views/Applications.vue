@@ -102,9 +102,9 @@
                 <span class="status-badge" :class="decideModal.row?.status">{{ statusLabel(decideModal.row?.status) }}</span>
               </div>
             </div>
-            <div v-if="decideModal.row?.admin_remark" class="form-group mt-3">
+            <div v-if="decideModal.row?.remark || decideModal.row?.admin_remark" class="form-group mt-3">
               <label class="form-label">审批备注</label>
-              <div class="text-sm text-muted">{{ decideModal.row?.admin_remark }}</div>
+              <div class="text-sm text-muted">{{ decideModal.row?.remark || decideModal.row?.admin_remark }}</div>
             </div>
           </div>
         </div>

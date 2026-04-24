@@ -28,7 +28,7 @@ exports.submitBuyback = async (req, res) => {
       user_id: req.user.id,
       type: 'buyback',
       status: 'pending',
-      'payload.ownership_id': ownership_id
+      'payload.ownership_id': { $in: [ownership._id, String(ownership._id)] }
     });
     if (pending) {
       return res.status(400).json({ message: '该素材已有待审核的回购申请' });
@@ -51,11 +51,12 @@ exports.submitBuyback = async (req, res) => {
 };
 
 exports.getMyApplications = async (req, res) => {
-  const { page = 1, limit = 20 } = req.query;
+  const { type, page = 1, limit = 20 } = req.query;
   try {
     const pageNum = Math.max(1, parseInt(page));
     const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
     const filter = { user_id: req.user.id };
+    if (type) filter.type = type;
     const total = await Application.countDocuments(filter);
     const applications = await Application.find(filter)
       .sort({ created_at: -1 })

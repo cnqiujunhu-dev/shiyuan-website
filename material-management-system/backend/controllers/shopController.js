@@ -3,6 +3,7 @@ const Item = require('../models/Item');
 const Ownership = require('../models/Ownership');
 const Transaction = require('../models/Transaction');
 const User = require('../models/User');
+const VipLevel = require('../models/VipLevel');
 const { syncUserVip } = require('../services/vipService');
 const logger = require('../config/logger');
 
@@ -30,6 +31,29 @@ exports.getShopItems = async (req, res) => {
     return res.json({ total, page: pageNum, items });
   } catch (err) {
     logger.error('getShopItems error', { message: err.message });
+    return res.status(500).json({ message: '服务器错误' });
+  }
+};
+
+exports.getVipLevels = async (req, res) => {
+  try {
+    const levels = await VipLevel.find({ active: true })
+      .sort({ level: 1 })
+      .lean();
+
+    return res.json({
+      levels: levels.map(level => ({
+        id: String(level._id),
+        level: level.level,
+        threshold: level.threshold,
+        buyback: level.perks?.buyback_per_year ?? 0,
+        transfer: level.perks?.transfer_per_year ?? 0,
+        skipQueue: level.perks?.skip_queue_per_year ?? 0,
+        priorityBuy: !!level.perks?.priority_buy
+      }))
+    });
+  } catch (err) {
+    logger.error('getVipLevels error', { message: err.message });
     return res.status(500).json({ message: '服务器错误' });
   }
 };

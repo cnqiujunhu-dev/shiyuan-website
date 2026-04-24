@@ -22,7 +22,7 @@
         <div class="section-title" style="margin-bottom:6px;">素材回购申请</div>
         <p class="text-sm text-muted" style="margin-bottom:14px;">
           VIP 会员每年可对已转让素材发起回购申请，本年度剩余回购次数：
-          <strong class="text-primary">{{ auth.user?.buyback_remaining ?? 0 }}</strong> 次
+          <strong class="text-primary">{{ buybackRemaining }}</strong> 次
         </p>
 
         <div v-if="buybackError" class="alert alert-error" style="margin-bottom:12px;">{{ buybackError }}</div>
@@ -53,7 +53,7 @@
             <div style="flex-shrink:0">
               <button
                 class="btn btn-secondary btn-sm"
-                :disabled="(auth.user?.buyback_remaining ?? 0) <= 0"
+                :disabled="buybackRemaining <= 0"
                 @click="openBuybackModal(o)"
               >申请回购</button>
             </div>
@@ -245,7 +245,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, inject, onMounted } from 'vue'
+import { ref, reactive, inject, onMounted, computed } from 'vue'
 import { useAuthStore } from '@/stores/auth.js'
 import { useUserStore } from '@/stores/user.js'
 import { applicationsAPI, authAPI, assetsAPI } from '@/api/index.js'
@@ -255,6 +255,11 @@ const userStore = useUserStore()
 const addToast = inject('addToast')
 
 const activeTab = ref('buyback')
+const buybackRemaining = computed(() => (
+  userStore.summary?.buyback_remaining ??
+  auth.user?.buyback_remaining ??
+  0
+))
 
 // ===== Buyback =====
 const buybackAssets = ref([])
@@ -308,8 +313,8 @@ async function submitBuyback() {
     } else {
       buybackModal.error = res.message || '提交失败'
     }
-  } catch {
-    buybackModal.error = '网络错误，请稍后重试'
+  } catch (e) {
+    buybackModal.error = e?.message || '提交失败，请稍后重试'
   } finally {
     buybackModal.loading = false
   }
@@ -345,7 +350,7 @@ async function sendVerifyEmail() {
       emailError.value = res.message || res.error || '发送失败，请稍后重试'
     }
   } catch (e) {
-    emailError.value = '网络错误，请稍后重试'
+    emailError.value = e?.message || '发送失败，请稍后重试'
   } finally {
     emailLoading.value = false
   }
@@ -368,7 +373,7 @@ async function submitVerifyEmail() {
       emailError.value = res.message || res.error || '验证失败'
     }
   } catch (e) {
-    emailError.value = '网络错误，请稍后重试'
+    emailError.value = e?.message || '验证失败，请稍后重试'
   } finally {
     emailLoading.value = false
   }
@@ -397,7 +402,7 @@ async function submitPasswordChange() {
       pwdError.value = res.message || res.error || '修改失败'
     }
   } catch (e) {
-    pwdError.value = '网络错误，请稍后重试'
+    pwdError.value = e?.message || '修改失败，请稍后重试'
   } finally {
     pwdLoading.value = false
   }

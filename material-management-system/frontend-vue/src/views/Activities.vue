@@ -225,10 +225,10 @@ async function loadActivities(p = 1) {
   try {
     const params = { page: p, limit: limit.value }
     if (filters.type) params.type = filters.type
-    if (filters.start_date) params.start_date = filters.start_date
-    if (filters.end_date) params.end_date = filters.end_date
+    if (filters.start_date) params.from = filters.start_date
+    if (filters.end_date) params.to = filters.end_date
     const res = await meAPI.getActivities(params)
-    activities.value = res.activities || []
+    activities.value = res.activities || res.transactions || []
     total.value = res.total || 0
   } catch (e) {
     addToast('加载记录失败', 'error')

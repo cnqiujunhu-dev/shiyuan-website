@@ -14,15 +14,13 @@ async function executeBuyback(application) {
   // 找到原转让记录（transfer_out），获取 replaced_by（对应的 transfer_in 记录 ID）
   const transferOut = await Ownership.findById(ownership_id);
   if (!transferOut || !transferOut.replaced_by) {
-    logger.warn('Buyback: transfer_out not found or missing replaced_by', { ownership_id });
-    return;
+    throw new Error('回购链路缺失：未找到对应的转出记录');
   }
 
   // 找到当前持有人的 transfer_in 记录
   const transferIn = await Ownership.findById(transferOut.replaced_by).populate('item_id', 'delivery_link price');
   if (!transferIn || !transferIn.active) {
-    logger.warn('Buyback: transfer_in not active', { transferInId: transferOut.replaced_by });
-    return;
+    throw new Error('回购链路缺失：未找到当前有效持有记录');
   }
 
   const item = transferIn.item_id;
@@ -40,15 +38,19 @@ async function executeBuyback(application) {
       user_id: applicantId,
       item_id: item._id || item_id,
       acquisition_type: 'transfer_in',
-      points_delta: item.price || 0,
+      points_delta: 0,
       occurred_at: now,
       delivery_link: item.delivery_link,
       source_user_id: currentHolderId,
       active: true
     }], { session });
 
-    // 更新原 transfer_out 记录的 replaced_by 指向新所有权
-    await Ownership.findByIdAndUpdate(transferOut._id, { replaced_by: newOwnership._id }, { session });
+    // Close the original transfer-out chain so it can no longer be re-bought back or rolled back.
+    await Ownership.findByIdAndUpdate(
+      transferOut._id,
+      { replaced_by: newOwnership._id, active: false },
+      { session }
+    );
 
     // 创建交易记录
     await Transaction.create([{
@@ -57,7 +59,7 @@ async function executeBuyback(application) {
       target_id: currentHolderId,
       item_id: item._id || item_id,
       price: item.price || 0,
-      points_change: item.price || 0,
+      points_change: 0,
       has_delivery_link: true,
       occurred_at: now,
       metadata: { buyback: true }
@@ -117,18 +119,7 @@ exports.decideApplication = async (req, res) => {
     return res.status(400).json({ message: '无效的审批状态' });
   }
   try {
-    const updateFields = {
-      status,
-      decided_by: req.user.id,
-      decided_at: new Date()
-    };
-    if (remark) updateFields.remark = remark;
-
-    const application = await Application.findOneAndUpdate(
-      { _id: id, status: 'pending' },
-      { $set: updateFields },
-      { new: true }
-    );
+    const application = await Application.findOne({ _id: id, status: 'pending' });
     if (!application) {
       const exists = await Application.findById(id);
       if (!exists) return res.status(404).json({ message: '申请不存在' });
@@ -138,6 +129,12 @@ exports.decideApplication = async (req, res) => {
     if (status === 'approved' && application.type === 'buyback') {
       await executeBuyback(application);
     }
+
+    application.status = status;
+    application.decided_by = req.user.id;
+    application.decided_at = new Date();
+    if (remark !== undefined) application.remark = remark;
+    await application.save();
 
     await auditService.log(
       req.user.id,

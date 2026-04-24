@@ -13,17 +13,34 @@ async function request(url, options = {}) {
     ...options,
     headers: { ...getHeaders(!(options.body instanceof FormData)), ...options.headers }
   })
+
+  let data = {}
+  const text = await res.text()
+  if (text) {
+    try {
+      data = JSON.parse(text)
+    } catch {
+      data = { message: text }
+    }
+  }
+
   if (res.status === 401) {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
     window.location.href = '/login'
-    return {}
+    throw new Error(data.message || '登录已过期，请重新登录')
   }
-  return res.json()
+
+  if (!res.ok) {
+    throw new Error(data.message || data.error || `请求失败（${res.status}）`)
+  }
+
+  return data
 }
 
 // Auth
 export const authAPI = {
+  sendRegisterCode: (data) => request('/auth/register/send-code', { method: 'POST', body: JSON.stringify(data) }),
   register: (data) => request('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
   login: (data) => request('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
   sendVerifyEmail: (email) => request('/auth/email/send-verify', { method: 'POST', body: JSON.stringify(email ? { email } : {}) }),
@@ -56,6 +73,7 @@ export const applicationsAPI = {
 // Shop
 export const shopAPI = {
   getItems: (params = {}) => request('/shop/items?' + new URLSearchParams(params)),
+  getVipLevels: () => request('/shop/vip-levels'),
   buyItem: (id) => request(`/shop/items/${id}/buy`, { method: 'POST' }),
   skipQueueBuy: (id) => request(`/shop/items/${id}/skip-queue`, { method: 'POST' }),
 }

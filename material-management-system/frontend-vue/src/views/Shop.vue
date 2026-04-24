@@ -96,10 +96,11 @@
             v-if="item.queue_enabled"
             class="btn btn-primary btn-sm"
             style="width:100%;margin-bottom:6px;"
-            :disabled="auth.user?.skip_queue_remaining <= 0"
+            :disabled="auth.vipLevel < 4 || skipQueueRemaining <= 0"
             @click="doBuyItem(item, true)"
           >
-            <span v-if="auth.user?.skip_queue_remaining > 0">插队购买（剩余 {{ auth.user.skip_queue_remaining }} 次）</span>
+            <span v-if="auth.vipLevel < 4">需 VIP4+</span>
+            <span v-else-if="skipQueueRemaining > 0">插队购买（剩余 {{ skipQueueRemaining }} 次）</span>
             <span v-else>插队次数已用完</span>
           </button>
 
@@ -172,12 +173,14 @@
 </template>
 
 <script setup>
-import { ref, reactive, inject, onMounted } from 'vue'
+import { ref, reactive, inject, onMounted, computed } from 'vue'
 import { useAuthStore } from '@/stores/auth.js'
+import { useUserStore } from '@/stores/user.js'
 import { shopAPI, assetsAPI } from '@/api/index.js'
 import Pagination from '@/components/Pagination.vue'
 
 const auth = useAuthStore()
+const userStore = useUserStore()
 
 const addToast = inject('addToast')
 
@@ -194,6 +197,11 @@ const sponsorModal = reactive({ visible: false, item: null, confirming: false })
 const sponsorForm = reactive({ target_id: '', target_qq: '' })
 const sponsorError = ref('')
 const sponsorLoading = ref(false)
+const skipQueueRemaining = computed(() => (
+  userStore.summary?.skip_queue_remaining ??
+  auth.user?.skip_queue_remaining ??
+  0
+))
 
 function statusLabel(status) {
   if (status === 'completed') return '结车'
@@ -232,13 +240,16 @@ async function doBuyItem(item, isSkipQueue = false) {
       ? await shopAPI.skipQueueBuy(item._id || item.id)
       : await shopAPI.buyItem(item._id || item.id)
     if (res.message && !res.error) {
+      if (auth.isLoggedIn) {
+        await userStore.fetchSummary()
+      }
       addToast(res.message, 'success')
       loadItems(page.value)
     } else {
       addToast(res.message || '购买失败', 'error')
     }
-  } catch {
-    addToast('网络错误，请稍后重试', 'error')
+  } catch (e) {
+    addToast(e?.message || '购买失败，请稍后重试', 'error')
   }
 }
 
@@ -273,19 +284,25 @@ async function submitSponsor() {
     if (sponsorForm.target_qq) data.target_qq = sponsorForm.target_qq
     const res = await assetsAPI.sponsor(data)
     if (res.message && !res.error) {
+      if (auth.isLoggedIn) {
+        await userStore.fetchSummary()
+      }
       addToast(res.message, 'success')
       closeSponsorModal()
     } else {
       sponsorError.value = res.message || res.error || '赞助失败'
     }
   } catch (e) {
-    sponsorError.value = '网络错误，请稍后重试'
+    sponsorError.value = e?.message || '赞助失败，请稍后重试'
   } finally {
     sponsorLoading.value = false
   }
 }
 
 onMounted(() => {
+  if (auth.isLoggedIn) {
+    userStore.fetchSummary()
+  }
   loadItems(1)
 })
 </script>

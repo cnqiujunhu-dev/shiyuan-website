@@ -8,7 +8,7 @@
     <div class="vip-level-card" :style="cardStyle" style="margin-bottom:24px;">
       <div class="vip-level-title" style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
         <VipBadge :level="auth.vipLevel" />
-        <span style="font-size:1.15rem;font-weight:700;">{{ levelNames[auth.vipLevel] || '普通会员' }}</span>
+        <span style="font-size:1.15rem;font-weight:700;">{{ currentLevelName }}</span>
       </div>
 
       <div class="vip-stats">
@@ -31,10 +31,10 @@
       </div>
 
       <!-- Progress Bar to Next Level -->
-      <template v-if="auth.vipLevel < 5 && nextLevel">
+      <template v-if="nextLevel">
         <div style="margin-top:16px;">
-          <div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:6px;" :style="{ color: auth.vipLevel === 5 ? 'rgba(255,255,255,0.8)' : 'var(--text-muted)' }">
-            <span>距下一等级 {{ levelNames[auth.vipLevel + 1] }}</span>
+          <div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:6px;" :style="{ color: isMaxLevel ? 'rgba(255,255,255,0.8)' : 'var(--text-muted)' }">
+            <span>距下一等级 {{ nextLevelName }}</span>
             <span>{{ (displayData.points_total || 0).toLocaleString() }} / {{ nextLevel.threshold.toLocaleString() }} 积分</span>
           </div>
           <div style="height:8px;background:rgba(0,0,0,0.1);border-radius:999px;overflow:hidden;">
@@ -43,14 +43,14 @@
                 height: '100%',
                 width: progressPct + '%',
                 borderRadius: '999px',
-                background: auth.vipLevel === 5 ? 'rgba(255,255,255,0.8)' : 'var(--primary)',
+                background: isMaxLevel ? 'rgba(255,255,255,0.8)' : 'var(--primary)',
                 transition: 'width 0.6s ease',
               }"
             ></div>
           </div>
         </div>
       </template>
-      <div v-else-if="auth.vipLevel === 5" style="margin-top:12px;font-size:0.85rem;opacity:0.85;">
+      <div v-else-if="maxVipLevel > 0 && auth.vipLevel >= maxVipLevel" style="margin-top:12px;font-size:0.85rem;opacity:0.85;">
         已达最高等级，感谢您的支持！
       </div>
     </div>
@@ -120,15 +120,36 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth.js'
 import { useUserStore } from '@/stores/user.js'
+import { shopAPI } from '@/api/index.js'
 import VipBadge from '@/components/VipBadge.vue'
 
 const auth = useAuthStore()
 const userStore = useUserStore()
 
-const levelNames = ['普通会员', 'VIP1·铜牌', 'VIP2·银牌', 'VIP3·金牌', 'VIP4·铂金', 'VIP5·钻石']
+const DEFAULT_VIP_TIERS = [
+  { level: 1, threshold: 888, buyback: 1, transfer: 0, skipQueue: 0, priorityBuy: true },
+  { level: 2, threshold: 2688, buyback: 1, transfer: 1, skipQueue: 0, priorityBuy: true },
+  { level: 3, threshold: 5688, buyback: 2, transfer: 2, skipQueue: 0, priorityBuy: true },
+  { level: 4, threshold: 8888, buyback: 2, transfer: 3, skipQueue: 3, priorityBuy: true },
+  { level: 5, threshold: 16888, buyback: 3, transfer: 6, skipQueue: 6, priorityBuy: true },
+]
+
+const vipTiers = ref(DEFAULT_VIP_TIERS)
+
+function formatLevelName(level) {
+  if (level <= 0) return '普通会员'
+  const aliases = {
+    1: 'VIP1·铜牌',
+    2: 'VIP2·银牌',
+    3: 'VIP3·金牌',
+    4: 'VIP4·铂金',
+    5: 'VIP5·钻石'
+  }
+  return aliases[level] || `VIP${level}`
+}
 
 // Prefer userStore.summary for up-to-date data, fall back to auth.user
 const displayData = computed(() => {
@@ -142,25 +163,20 @@ const displayData = computed(() => {
   }
 })
 
-const vipTiers = [
-  { level: 1, threshold: 888,   buyback: 1, transfer: 0, skipQueue: 0, priorityBuy: true  },
-  { level: 2, threshold: 2688,  buyback: 1, transfer: 1, skipQueue: 0, priorityBuy: true  },
-  { level: 3, threshold: 5688,  buyback: 2, transfer: 2, skipQueue: 0, priorityBuy: true  },
-  { level: 4, threshold: 8888,  buyback: 2, transfer: 3, skipQueue: 3, priorityBuy: true  },
-  { level: 5, threshold: 16888, buyback: 3, transfer: 6, skipQueue: 6, priorityBuy: true  },
-]
+const maxVipLevel = computed(() => vipTiers.value[vipTiers.value.length - 1]?.level || 0)
+const currentLevelName = computed(() => formatLevelName(auth.vipLevel))
+const nextLevelName = computed(() => formatLevelName(auth.vipLevel + 1))
+const isMaxLevel = computed(() => maxVipLevel.value > 0 && auth.vipLevel >= maxVipLevel.value)
 
 const nextLevel = computed(() => {
-  const lvl = auth.vipLevel
-  if (lvl >= 5) return null
-  return vipTiers.find(t => t.level === lvl + 1) || null
+  return vipTiers.value.find(t => t.level === auth.vipLevel + 1) || null
 })
 
 const progressPct = computed(() => {
   if (!nextLevel.value) return 100
   const pts = displayData.value.points_total || 0
   const threshold = nextLevel.value.threshold
-  const prevThreshold = auth.vipLevel > 0 ? (vipTiers.find(t => t.level === auth.vipLevel)?.threshold || 0) : 0
+  const prevThreshold = auth.vipLevel > 0 ? (vipTiers.value.find(t => t.level === auth.vipLevel)?.threshold || 0) : 0
   const range = threshold - prevThreshold
   if (range <= 0) return 100
   const progress = pts - prevThreshold
@@ -177,15 +193,27 @@ const cardStyle = computed(() => {
     'linear-gradient(135deg, #0ea5e9 0%, #7c3aed 100%)',
   ]
   const borders = ['#e5e7eb', '#fbbf24', '#94a3b8', '#f59e0b', '#a78bfa', '#7c3aed']
-  const level = auth.vipLevel
+  const paletteIndex = Math.min(auth.vipLevel, gradients.length - 1)
   return {
-    background: gradients[level] || gradients[0],
-    borderColor: borders[level] || borders[0],
-    color: level === 5 ? '#fff' : undefined,
+    background: gradients[paletteIndex] || gradients[0],
+    borderColor: borders[paletteIndex] || borders[0],
+    color: isMaxLevel.value ? '#fff' : undefined,
   }
 })
 
+async function loadVipTiers() {
+  try {
+    const res = await shopAPI.getVipLevels()
+    if (Array.isArray(res.levels) && res.levels.length > 0) {
+      vipTiers.value = res.levels
+    }
+  } catch {
+    vipTiers.value = DEFAULT_VIP_TIERS
+  }
+}
+
 onMounted(() => {
   userStore.fetchSummary()
+  loadVipTiers()
 })
 </script>

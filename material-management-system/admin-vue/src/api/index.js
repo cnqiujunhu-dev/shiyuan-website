@@ -13,12 +13,28 @@ async function request(url, options = {}) {
     ...options,
     headers: { ...getHeaders(!(options.body instanceof FormData)), ...options.headers }
   })
+
+  let data = {}
+  const text = await res.text()
+  if (text) {
+    try {
+      data = JSON.parse(text)
+    } catch {
+      data = { message: text }
+    }
+  }
+
   if (res.status === 401) {
     localStorage.removeItem('adminToken')
     window.location.href = '/login'
-    return {}
+    throw new Error(data.message || '登录已过期，请重新登录')
   }
-  return res.json()
+
+  if (!res.ok) {
+    throw new Error(data.message || data.error || `请求失败（${res.status}）`)
+  }
+
+  return data
 }
 
 // Auth
