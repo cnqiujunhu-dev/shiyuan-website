@@ -16,26 +16,39 @@ const authLimiter = rateLimit({
 const usernameValidation = () => body('username')
   .trim()
   .isLength({ min: 2, max: 30 })
-  .withMessage('圈名 ID 长度须为 2-30 个字符')
+  .withMessage('自定义 ID 长度须为 2-30 个字符')
   .matches(/^[^\r\n\t<>]+$/)
-  .withMessage('圈名 ID 不能包含换行或尖括号');
+  .withMessage('自定义 ID 不能包含换行或尖括号');
+
+const qqEmailValidation = () => body('email')
+  .isEmail()
+  .withMessage('邮箱格式不正确')
+  .bail()
+  .normalizeEmail()
+  .custom((value) => {
+    const domain = String(value || '').toLowerCase().split('@')[1];
+    if (!['qq.com', 'vip.qq.com', 'foxmail.com'].includes(domain)) {
+      throw new Error('请使用 QQ 邮箱注册');
+    }
+    return true;
+  });
 
 const registerValidation = [
   usernameValidation(),
-  body('email').isEmail().normalizeEmail().withMessage('邮箱格式不正确'),
+  qqEmailValidation(),
   body('password').isLength({ min: 6 }).withMessage('密码至少 6 个字符'),
   body('code').trim().isLength({ min: 6, max: 6 }).withMessage('验证码格式不正确')
 ];
 
 const registerCodeValidation = [
   usernameValidation().optional(),
-  body('email').isEmail().normalizeEmail().withMessage('邮箱格式不正确')
+  qqEmailValidation()
 ];
 
 router.post('/register/send-code', authLimiter, registerCodeValidation, authController.sendRegisterCode);
 router.post('/register', authLimiter, registerValidation, authController.register);
 router.post('/login', authLimiter, [
-  body('username').trim().notEmpty().withMessage('请输入用户名'),
+  body('username').trim().notEmpty().withMessage('请输入自定义 ID'),
   body('password').notEmpty().withMessage('请输入密码')
 ], authController.login);
 router.post('/email/send-verify', auth, authController.sendVerifyEmail);

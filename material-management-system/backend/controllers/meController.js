@@ -21,9 +21,11 @@ exports.getSummary = async (req, res) => {
       return res.status(404).json({ message: '用户不存在' });
     }
     return res.json({
+      uid: user.uid,
       username: user.username,
       email: user.email,
       email_verified_at: user.email_verified_at,
+      registration_status: user.registration_status || 'approved',
       qq: user.qq,
       platform: user.platform,
       platform_id: user.platform_id,

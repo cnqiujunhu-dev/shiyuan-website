@@ -13,8 +13,12 @@ async function auth(req, res, next) {
     if (!user) {
       return res.status(401).json({ message: '令牌验证失败' });
     }
+    if (user.registration_status && user.registration_status !== 'approved') {
+      return res.status(403).json({ message: '账号尚未通过审核' });
+    }
     req.user = {
       id: user._id.toString(),
+      uid: user.uid,
       username: user.username,
       roles: user.roles,
       vip_level: user.vip_level

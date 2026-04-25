@@ -9,14 +9,17 @@ function serializeUser(userDoc) {
 }
 
 exports.getUsers = async (req, res) => {
-  const { q, page = 1, limit = 20 } = req.query;
+  const { q, registration_status, page = 1, limit = 20 } = req.query;
   try {
     const pageNum = Math.max(1, parseInt(page));
     const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
     const filter = {};
     if (q) {
       const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-      filter.$or = [{ username: re }, { qq: re }, { platform_id: re }, { email: re }];
+      filter.$or = [{ uid: re }, { username: re }, { qq: re }, { platform_id: re }, { email: re }];
+    }
+    if (registration_status) {
+      filter.registration_status = registration_status;
     }
     const total = await User.countDocuments(filter);
     const users = await User.find(filter)
@@ -35,7 +38,10 @@ exports.getUsers = async (req, res) => {
 exports.getUserDetail = async (req, res) => {
   const { id } = req.params;
   try {
-    const user = await User.findById(id).select('-password_hash').lean();
+    const user = await User.findById(id)
+      .select('-password_hash')
+      .populate('registration_reviewed_by', 'username')
+      .lean();
     if (!user) return res.status(404).json({ message: '用户不存在' });
 
     const Ownership = require('../../models/Ownership');

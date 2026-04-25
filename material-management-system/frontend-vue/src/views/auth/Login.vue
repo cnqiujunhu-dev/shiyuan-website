@@ -10,12 +10,12 @@
 
         <form @submit.prevent="handleLogin">
           <div class="form-group">
-            <label class="form-label">用户名</label>
+            <label class="form-label">自定义 ID</label>
             <input
               v-model="form.username"
               type="text"
               class="form-input"
-              placeholder="请输入用户名"
+              placeholder="请输入自定义 ID"
               autocomplete="username"
               required
             />

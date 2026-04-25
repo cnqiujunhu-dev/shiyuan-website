@@ -95,65 +95,158 @@ async function testVerifiedEmailRegistration() {
 
   let capturedEmail = null;
   let capturedCode = null;
+  let approvedEmail = null;
+  let rejectedEmail = null;
+  let rejectedReason = null;
   const originalSendRegistrationCodeEmail = emailService.sendRegistrationCodeEmail;
+  const originalSendRegistrationApprovedEmail = emailService.sendRegistrationApprovedEmail;
+  const originalSendRegistrationRejectedEmail = emailService.sendRegistrationRejectedEmail;
   emailService.sendRegistrationCodeEmail = async (email, code) => {
     capturedEmail = email;
     capturedCode = code;
   };
+  emailService.sendRegistrationApprovedEmail = async (email) => {
+    approvedEmail = email;
+  };
+  emailService.sendRegistrationRejectedEmail = async (email, user, reason) => {
+    rejectedEmail = email;
+    rejectedReason = reason;
+  };
 
   try {
+    const nonQqResult = await callController(authController.sendRegisterCode, {
+      user: {},
+      body: { email: 'NewUser@Example.Invalid', username: 'verified_user' }
+    });
+    expectStatus(nonQqResult, 400, 'reject non-QQ registration email');
+
     const sendCodeResult = await callController(authController.sendRegisterCode, {
       user: {},
-      body: { email: 'NewUser@Example.Invalid' }
+      body: { email: '123456@qq.com', username: 'verified_user' }
     });
     expectStatus(sendCodeResult, 200, 'send registration code');
-    assert.equal(capturedEmail, 'newuser@example.invalid', 'registration email should be normalized');
+    assert.equal(capturedEmail, '123456@qq.com', 'registration email should be normalized');
     assert.match(capturedCode, /^\d{6}$/, 'registration code should be six digits');
 
-    const pending = await RegistrationVerification.findOne({ email: 'newuser@example.invalid' }).select('+code_hash').lean();
+    const pending = await RegistrationVerification.findOne({ email: '123456@qq.com' }).select('+code_hash').lean();
     assert.ok(pending, 'registration code should be stored before account creation');
-    assert.equal(await User.countDocuments({ email: 'newuser@example.invalid' }), 0, 'sending a code should not create a user');
+    assert.equal(await User.countDocuments({ email: '123456@qq.com' }), 0, 'sending a code should not create a user');
 
     const wrongCodeResult = await callController(authController.register, {
       user: {},
       body: {
         username: 'verified_user',
-        email: 'newuser@example.invalid',
+        email: '123456@qq.com',
         password: 'secret123',
         code: '000000'
       }
     });
     expectStatus(wrongCodeResult, 400, 'reject wrong registration code');
-    assert.equal(await User.countDocuments({ email: 'newuser@example.invalid' }), 0, 'wrong code should not create a user');
+    assert.equal(await User.countDocuments({ email: '123456@qq.com' }), 0, 'wrong code should not create a user');
 
     const registerResult = await callController(authController.register, {
       user: {},
       body: {
         username: 'verified_user',
-        email: 'newuser@example.invalid',
+        email: '123456@qq.com',
         password: 'secret123',
         code: capturedCode
       }
     });
     expectStatus(registerResult, 201, 'register with verified email code');
-    assert.ok(registerResult.body.token, 'verified registration should return auth token');
-    assert.ok(registerResult.body.refreshToken, 'verified registration should return refresh token');
-    assert.equal(registerResult.body.user.email, 'newuser@example.invalid');
+    assert.ok(!registerResult.body.token, 'registration under review should not return auth token');
+    assert.equal(registerResult.body.user.email, '123456@qq.com');
     assert.ok(registerResult.body.user.email_verified_at, 'registered user email should be verified');
+    assert.equal(registerResult.body.user.registration_status, 'pending');
+    assert.ok(registerResult.body.user.uid, 'registered user should receive generated UID');
 
-    const user = await User.findOne({ email: 'newuser@example.invalid' }).lean();
+    const user = await User.findOne({ email: '123456@qq.com' }).lean();
     assert.ok(user, 'verified registration should create user');
     assert.equal(user.username, 'verified_user');
+    assert.equal(user.qq, '123456', 'QQ number should be inferred from qq.com email');
     assert.ok(user.email_verified_at, 'created user should have verified email timestamp');
-    assert.equal(await RegistrationVerification.countDocuments({ email: 'newuser@example.invalid' }), 0, 'used registration code should be deleted');
+    assert.equal(user.registration_status, 'pending', 'created user should wait for review');
+    assert.ok(user.uid, 'created user should have UID');
+    assert.equal(await RegistrationVerification.countDocuments({ email: '123456@qq.com' }), 0, 'used registration code should be deleted');
+
+    const registrationApplication = await Application.findOne({
+      user_id: user._id,
+      type: 'registration',
+      status: 'pending'
+    }).lean();
+    assert.ok(registrationApplication, 'pending registration application should be created');
+
+    const pendingLogin = await callController(authController.login, {
+      user: {},
+      body: { username: 'verified_user', password: 'secret123' }
+    });
+    expectStatus(pendingLogin, 403, 'pending registration cannot login');
+
+    const admin = await createUser({ username: 'registration_admin', roles: ['user', 'admin'] });
+    const approveResult = await callController(adminApplicationController.decideApplication, {
+      user: admin,
+      params: { id: objectId(registrationApplication) },
+      body: { status: 'approved', remark: 'ok' }
+    });
+    expectStatus(approveResult, 200, 'approve registration');
+    assert.equal(approvedEmail, '123456@qq.com', 'approval email should be sent');
+
+    const approvedUser = await User.findById(user._id).lean();
+    assert.equal(approvedUser.registration_status, 'approved', 'approved registration should activate user');
+
+    const approvedLogin = await callController(authController.login, {
+      user: {},
+      body: { username: 'verified_user', password: 'secret123' }
+    });
+    expectStatus(approvedLogin, 200, 'approved registration can login');
+    assert.ok(approvedLogin.body.token, 'approved login should return auth token');
 
     const duplicateEmailResult = await callController(authController.sendRegisterCode, {
       user: {},
-      body: { email: 'newuser@example.invalid' }
+      body: { email: '123456@qq.com', username: 'another_user' }
     });
     expectStatus(duplicateEmailResult, 409, 'block registration code for existing email');
+
+    capturedCode = null;
+    const rejectCodeResult = await callController(authController.sendRegisterCode, {
+      user: {},
+      body: { email: '654321@qq.com', username: 'rejected_user' }
+    });
+    expectStatus(rejectCodeResult, 200, 'send code for rejected path');
+    const rejectRegisterResult = await callController(authController.register, {
+      user: {},
+      body: {
+        username: 'rejected_user',
+        email: '654321@qq.com',
+        password: 'secret123',
+        code: capturedCode
+      }
+    });
+    expectStatus(rejectRegisterResult, 201, 'submit registration for rejection');
+    const rejectedUser = await User.findOne({ email: '654321@qq.com' }).lean();
+    const rejectApplication = await Application.findOne({
+      user_id: rejectedUser._id,
+      type: 'registration',
+      status: 'pending'
+    }).lean();
+    const rejectResult = await callController(adminApplicationController.decideApplication, {
+      user: admin,
+      params: { id: objectId(rejectApplication) },
+      body: { status: 'rejected', remark: 'QQ 信息无法核验' }
+    });
+    expectStatus(rejectResult, 200, 'reject registration');
+    assert.equal(rejectedEmail, '654321@qq.com', 'rejection email should be sent');
+    assert.equal(rejectedReason, 'QQ 信息无法核验', 'rejection email should include custom reason');
+
+    const rejectedLogin = await callController(authController.login, {
+      user: {},
+      body: { username: 'rejected_user', password: 'secret123' }
+    });
+    expectStatus(rejectedLogin, 403, 'rejected registration cannot login');
   } finally {
     emailService.sendRegistrationCodeEmail = originalSendRegistrationCodeEmail;
+    emailService.sendRegistrationApprovedEmail = originalSendRegistrationApprovedEmail;
+    emailService.sendRegistrationRejectedEmail = originalSendRegistrationRejectedEmail;
   }
 }
 

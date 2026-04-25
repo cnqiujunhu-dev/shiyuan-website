@@ -19,8 +19,20 @@
         <div style="padding:20px;">
           <div class="info-grid">
             <div class="info-item">
-              <span class="info-label">圈名 / 用户名</span>
+              <span class="info-label">平台 UID</span>
+              <span class="info-value">{{ user.uid || '未生成' }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">自定义 ID</span>
               <span class="info-value">{{ user.username }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">注册状态</span>
+              <span class="info-value">
+                <span class="status-badge" :class="registrationStatusClass(user.registration_status)">
+                  {{ registrationStatusLabel(user.registration_status) }}
+                </span>
+              </span>
             </div>
             <div class="info-item">
               <span class="info-label">QQ</span>
@@ -73,6 +85,14 @@
             <div class="info-item">
               <span class="info-label">注册时间</span>
               <span class="info-value">{{ formatDate(user.created_at) }}</span>
+            </div>
+            <div v-if="user.registration_reviewed_at" class="info-item">
+              <span class="info-label">审核时间</span>
+              <span class="info-value">{{ formatDate(user.registration_reviewed_at) }}</span>
+            </div>
+            <div v-if="user.registration_reject_reason" class="info-item">
+              <span class="info-label">拒绝说明</span>
+              <span class="info-value">{{ user.registration_reject_reason }}</span>
             </div>
           </div>
         </div>
@@ -143,6 +163,16 @@ const ownerships = ref([])
 function formatDate(d) {
   if (!d) return '-'
   return new Date(d).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
+}
+
+function registrationStatusLabel(status) {
+  const map = { pending: '待审核', approved: '已通过', rejected: '已拒绝' }
+  return map[status || 'approved'] || status
+}
+
+function registrationStatusClass(status) {
+  const map = { pending: 'pending', approved: 'approved', rejected: 'rejected' }
+  return map[status || 'approved'] || 'approved'
 }
 
 function typeLabel(t) {

@@ -15,10 +15,19 @@
           <input
             v-model="filters.q"
             class="search-input"
-            placeholder="用户名 / QQ / 平台ID"
+            placeholder="UID / 自定义ID / QQ / 邮箱"
             style="min-width:220px"
             @keyup.enter="search"
           />
+        </div>
+        <div class="search-group">
+          <label class="search-label">注册状态</label>
+          <select v-model="filters.registration_status" class="search-input" @change="search">
+            <option value="">全部</option>
+            <option value="pending">待审核</option>
+            <option value="approved">已通过</option>
+            <option value="rejected">已拒绝</option>
+          </select>
         </div>
         <button class="btn btn-primary btn-sm" @click="search">搜索</button>
         <button class="btn btn-secondary btn-sm" @click="resetFilters">重置</button>
@@ -35,8 +44,10 @@
         <table v-else>
           <thead>
             <tr>
-              <th>用户名</th>
+              <th>UID</th>
+              <th>自定义 ID</th>
               <th>邮箱</th>
+              <th>注册状态</th>
               <th>QQ</th>
               <th>平台</th>
               <th>平台 ID</th>
@@ -47,8 +58,10 @@
           </thead>
           <tbody>
             <tr v-for="row in rows" :key="row.id">
+              <td class="text-sm text-muted">{{ row.uid || '-' }}</td>
               <td style="font-weight:500">{{ row.username }}</td>
               <td class="text-muted text-sm">{{ maskEmail(row.email) }}</td>
+              <td><span class="status-badge" :class="registrationStatusClass(row.registration_status)">{{ registrationStatusLabel(row.registration_status) }}</span></td>
               <td class="text-muted">{{ row.qq || '-' }}</td>
               <td>{{ row.platform || '-' }}</td>
               <td>{{ row.platform_id || '-' }}</td>
@@ -131,7 +144,7 @@ const page = ref(1)
 const pageSize = 20
 const loading = ref(false)
 
-const filters = ref({ q: '' })
+const filters = ref({ q: '', registration_status: '' })
 
 const totalPages = computed(() => Math.ceil(total.value / pageSize))
 const visiblePages = computed(() => {
@@ -147,6 +160,7 @@ async function loadData() {
   try {
     const params = { page: page.value, limit: pageSize }
     if (filters.value.q) params.q = filters.value.q
+    if (filters.value.registration_status) params.registration_status = filters.value.registration_status
     const res = await usersAPI.getAll(params)
     rows.value = res.users || res.data || []
     total.value = res.total || rows.value.length
@@ -159,7 +173,7 @@ async function loadData() {
 }
 
 function search() { page.value = 1; loadData() }
-function resetFilters() { filters.value = { q: '' }; page.value = 1; loadData() }
+function resetFilters() { filters.value = { q: '', registration_status: '' }; page.value = 1; loadData() }
 function changePage(p) { page.value = p; loadData() }
 
 function maskEmail(email) {
@@ -175,6 +189,16 @@ function maskEmail(email) {
 function formatDate(d) {
   if (!d) return '-'
   return new Date(d).toLocaleDateString('zh-CN')
+}
+
+function registrationStatusLabel(status) {
+  const map = { pending: '待审核', approved: '已通过', rejected: '已拒绝' }
+  return map[status || 'approved'] || status
+}
+
+function registrationStatusClass(status) {
+  const map = { pending: 'pending', approved: 'approved', rejected: 'rejected' }
+  return map[status || 'approved'] || 'approved'
 }
 
 // Edit Modal

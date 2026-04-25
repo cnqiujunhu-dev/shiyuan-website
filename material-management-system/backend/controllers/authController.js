@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const User = require('../models/User');
+const Application = require('../models/Application');
 const RegistrationVerification = require('../models/RegistrationVerification');
 const emailService = require('../services/emailService');
 const logger = require('../config/logger');
@@ -20,6 +21,21 @@ function getValidationMessage(req) {
 
 function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
+}
+
+function isQQEmail(email) {
+  const domain = normalizeEmail(email).split('@')[1];
+  return ['qq.com', 'vip.qq.com', 'foxmail.com'].includes(domain);
+}
+
+function getQqFromEmail(email) {
+  const [local, domain] = normalizeEmail(email).split('@');
+  if (domain === 'qq.com' && /^\d+$/.test(local)) return local;
+  return undefined;
+}
+
+function getRegistrationStatus(user) {
+  return user.registration_status || 'approved';
 }
 
 function hashVerificationCode(email, code) {
@@ -46,6 +62,7 @@ function buildAuthResponse(user) {
     refreshToken,
     user: {
       id: user._id,
+      uid: user.uid,
       username: user.username,
       roles: user.roles,
       vip_level: user.vip_level,
@@ -57,7 +74,8 @@ function buildAuthResponse(user) {
       platform: user.platform,
       platform_id: user.platform_id,
       email: user.email,
-      email_verified_at: user.email_verified_at
+      email_verified_at: user.email_verified_at,
+      registration_status: getRegistrationStatus(user)
     }
   };
 }
@@ -79,17 +97,23 @@ exports.sendRegisterCode = async (req, res) => {
     return res.status(400).json({ message: validationMessage });
   }
   const email = normalizeEmail(req.body.email);
-  const { username } = req.body;
+  const username = String(req.body.username || '').trim();
+  if (!isQQEmail(email)) {
+    return res.status(400).json({ message: '请使用 QQ 邮箱注册' });
+  }
   try {
     const [emailExists, usernameExists] = await Promise.all([
       User.findOne({ email }),
       username ? User.findOne({ username }) : null
     ]);
-    if (emailExists) {
-      return res.status(409).json({ message: '邮箱已被使用，请直接登录或找回密码' });
+    if (emailExists && getRegistrationStatus(emailExists) !== 'rejected') {
+      const message = getRegistrationStatus(emailExists) === 'pending'
+        ? '该 QQ 邮箱的注册申请正在审核中'
+        : '邮箱已被使用，请直接登录或找回密码';
+      return res.status(409).json({ message });
     }
-    if (usernameExists) {
-      return res.status(409).json({ message: '用户名已被使用' });
+    if (usernameExists && (!emailExists || String(usernameExists._id) !== String(emailExists._id))) {
+      return res.status(409).json({ message: '自定义 ID 已被使用' });
     }
 
     const pending = await RegistrationVerification.findOne({ email }).lean();
@@ -130,18 +154,25 @@ exports.register = async (req, res) => {
   if (validationMessage) {
     return res.status(400).json({ message: validationMessage });
   }
-  const { username, password, code } = req.body;
+  const { password, code } = req.body;
+  const username = String(req.body.username || '').trim();
   const email = normalizeEmail(req.body.email);
+  if (!isQQEmail(email)) {
+    return res.status(400).json({ message: '请使用 QQ 邮箱注册' });
+  }
   try {
     const [usernameExists, emailExists] = await Promise.all([
       User.findOne({ username }),
       User.findOne({ email })
     ]);
-    if (usernameExists) {
-      return res.status(409).json({ message: '用户名已被使用' });
+    if (emailExists && getRegistrationStatus(emailExists) !== 'rejected') {
+      const message = getRegistrationStatus(emailExists) === 'pending'
+        ? '该 QQ 邮箱的注册申请正在审核中'
+        : '邮箱已被使用，请直接登录或找回密码';
+      return res.status(409).json({ message });
     }
-    if (emailExists) {
-      return res.status(409).json({ message: '邮箱已被使用，请直接登录或找回密码' });
+    if (usernameExists && (!emailExists || String(usernameExists._id) !== String(emailExists._id))) {
+      return res.status(409).json({ message: '自定义 ID 已被使用' });
     }
 
     const verification = await RegistrationVerification
@@ -166,20 +197,59 @@ exports.register = async (req, res) => {
     }
 
     const password_hash = await bcrypt.hash(password, 10);
-    const user = await User.create({
-      username,
-      password_hash,
-      email,
-      email_verified_at: new Date()
+    let user;
+    const verifiedAt = new Date();
+    if (emailExists && getRegistrationStatus(emailExists) === 'rejected') {
+      user = emailExists;
+      user.username = username;
+      user.password_hash = password_hash;
+      user.email = email;
+      user.qq = user.qq || getQqFromEmail(email);
+      user.email_verified_at = verifiedAt;
+      user.registration_status = 'pending';
+      user.registration_reviewed_by = undefined;
+      user.registration_reviewed_at = undefined;
+      user.registration_reject_reason = undefined;
+      await user.save();
+    } else {
+      user = await User.create({
+        username,
+        password_hash,
+        email,
+        qq: getQqFromEmail(email),
+        email_verified_at: verifiedAt,
+        registration_status: 'pending'
+      });
+    }
+
+    await Application.create({
+      type: 'registration',
+      user_id: user._id,
+      payload: {
+        username: user.username,
+        email: user.email,
+        uid: user.uid
+      }
     });
     await RegistrationVerification.deleteOne({ _id: verification._id });
 
-    logger.info('New user registered with verified email', { userId: user._id, username });
-    return res.status(201).json({ message: '注册成功', ...buildAuthResponse(user) });
+    logger.info('New user registration submitted for review', { userId: user._id, username, uid: user.uid });
+    return res.status(201).json({
+      message: '注册申请已提交，审核通过后会发送邮件通知您登录',
+      user: {
+        id: user._id,
+        uid: user.uid,
+        username: user.username,
+        email: user.email,
+        email_verified_at: user.email_verified_at,
+        registration_status: getRegistrationStatus(user)
+      }
+    });
   } catch (err) {
     if (err.code === 11000) {
       if (err.keyPattern?.email) return res.status(409).json({ message: '邮箱已被使用' });
-      if (err.keyPattern?.username) return res.status(409).json({ message: '用户名已被使用' });
+      if (err.keyPattern?.username) return res.status(409).json({ message: '自定义 ID 已被使用' });
+      if (err.keyPattern?.uid) return res.status(409).json({ message: 'UID 生成冲突，请重试' });
     }
     logger.error('Register error', { message: err.message });
     return res.status(500).json({ message: '服务器错误' });
@@ -200,6 +270,14 @@ exports.login = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
       return res.status(401).json({ message: '用户名或密码不正确' });
+    }
+    const registrationStatus = getRegistrationStatus(user);
+    if (registrationStatus === 'pending') {
+      return res.status(403).json({ message: '账号注册申请正在审核中，审核通过后会邮件通知您登录' });
+    }
+    if (registrationStatus === 'rejected') {
+      const reason = user.registration_reject_reason ? `：${user.registration_reject_reason}` : '';
+      return res.status(403).json({ message: `注册审核未通过${reason}` });
     }
     logger.info('User logged in', { userId: user._id, username: user.username });
     return res.status(200).json(buildAuthResponse(user));

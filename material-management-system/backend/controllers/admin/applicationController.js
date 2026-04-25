@@ -4,6 +4,7 @@ const User = require('../../models/User');
 const Ownership = require('../../models/Ownership');
 const Transaction = require('../../models/Transaction');
 const auditService = require('../../services/auditService');
+const emailService = require('../../services/emailService');
 const logger = require('../../config/logger');
 
 // 执行回购：恢复申请人所有权，停用当前持有人所有权
@@ -92,6 +93,33 @@ async function executeBuyback(application) {
   }
 }
 
+async function executeRegistrationReview(application, status, reviewerId, remark = '') {
+  const user = await User.findById(application.user_id);
+  if (!user) {
+    throw new Error('注册申请关联用户不存在');
+  }
+
+  user.registration_status = status === 'approved' ? 'approved' : 'rejected';
+  user.registration_reviewed_by = reviewerId;
+  user.registration_reviewed_at = new Date();
+  user.registration_reject_reason = status === 'rejected' ? remark : undefined;
+  await user.save();
+
+  if (status === 'approved') {
+    await emailService.sendRegistrationApprovedEmail(user.email, {
+      id: user._id,
+      uid: user.uid,
+      username: user.username
+    });
+  } else {
+    await emailService.sendRegistrationRejectedEmail(user.email, {
+      id: user._id,
+      uid: user.uid,
+      username: user.username
+    }, remark);
+  }
+}
+
 exports.getApplications = async (req, res) => {
   const { type, status, page = 1, limit = 20 } = req.query;
   try {
@@ -105,7 +133,7 @@ exports.getApplications = async (req, res) => {
       .sort({ created_at: -1 })
       .skip((pageNum - 1) * limitNum)
       .limit(limitNum)
-      .populate('user_id', 'username qq platform platform_id')
+      .populate('user_id', 'uid username email email_verified_at registration_status registration_reject_reason qq platform platform_id')
       .lean();
     return res.json({ total, page: pageNum, applications });
   } catch (err) {
@@ -130,6 +158,9 @@ exports.decideApplication = async (req, res) => {
 
     if (status === 'approved' && application.type === 'buyback') {
       await executeBuyback(application);
+    }
+    if (application.type === 'registration') {
+      await executeRegistrationReview(application, status, req.user.id, remark || '');
     }
 
     application.status = status;

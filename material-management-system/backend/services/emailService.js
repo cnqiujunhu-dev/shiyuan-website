@@ -37,6 +37,15 @@ function getTransporter() {
   return transporter;
 }
 
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 async function sendMail(to, subject, html) {
   const t = getTransporter();
   if (!t) {
@@ -75,6 +84,37 @@ async function sendRegistrationCodeEmail(email, code) {
   await sendMail(email, subject, html);
 }
 
+async function sendRegistrationApprovedEmail(email, user = {}) {
+  const subject = '【诸城叙梦】注册审核已通过';
+  const html = `
+    <p>您的诸城叙梦素材平台账号已通过审核，现在可以登录使用。</p>
+    <p>自定义 ID：<strong>${escapeHtml(user.username)}</strong></p>
+    <p>平台 UID：<strong>${escapeHtml(user.uid)}</strong></p>
+    <p>请使用注册时设置的自定义 ID 和密码登录。</p>
+  `;
+  if (!isMailConfigured()) {
+    logger.warn('Mail not configured — registration approval not sent', { email, userId: user.id || user._id });
+    throw new Error('邮件服务未配置，请联系管理员');
+  }
+  await sendMail(email, subject, html);
+}
+
+async function sendRegistrationRejectedEmail(email, user = {}, reason = '') {
+  const subject = '【诸城叙梦】注册审核未通过';
+  const safeReason = escapeHtml(reason || '本次注册申请暂未通过，请根据管理员说明调整后再联系处理。');
+  const html = `
+    <p>您的诸城叙梦素材平台注册申请暂未通过。</p>
+    <p>自定义 ID：<strong>${escapeHtml(user.username)}</strong></p>
+    <p>管理员说明：</p>
+    <p style="white-space:pre-line;">${safeReason}</p>
+  `;
+  if (!isMailConfigured()) {
+    logger.warn('Mail not configured — registration rejection not sent', { email, userId: user.id || user._id });
+    throw new Error('邮件服务未配置，请联系管理员');
+  }
+  await sendMail(email, subject, html);
+}
+
 async function sendPasswordResetEmail(email, code) {
   const subject = '【诸城叙梦】密码重置验证码';
   const html = `<p>您的密码重置验证码为：<strong>${code}</strong>，有效期 10 分钟，请勿泄露给他人。</p>`;
@@ -85,4 +125,10 @@ async function sendPasswordResetEmail(email, code) {
   await sendMail(email, subject, html);
 }
 
-module.exports = { sendVerifyEmail, sendRegistrationCodeEmail, sendPasswordResetEmail };
+module.exports = {
+  sendVerifyEmail,
+  sendRegistrationCodeEmail,
+  sendRegistrationApprovedEmail,
+  sendRegistrationRejectedEmail,
+  sendPasswordResetEmail
+};

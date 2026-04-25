@@ -3,13 +3,20 @@
     <div class="page-header">
       <div>
         <div class="page-title">审核中心</div>
-        <div class="page-subtitle">处理素材回购申请</div>
+        <div class="page-subtitle">处理注册审核与素材回购申请</div>
       </div>
     </div>
 
     <div class="page">
-      <!-- Status Filter -->
       <div class="search-bar">
+        <div class="search-group">
+          <label class="search-label">申请类型</label>
+          <select v-model="filters.type" class="search-input" @change="search">
+            <option value="">全部</option>
+            <option value="registration">注册审核</option>
+            <option value="buyback">素材回购</option>
+          </select>
+        </div>
         <div class="search-group">
           <label class="search-label">状态筛选</label>
           <select v-model="filters.status" class="search-input" @change="search">
@@ -22,31 +29,36 @@
         <button class="btn btn-secondary btn-sm" @click="resetFilters">重置</button>
       </div>
 
-      <!-- Table: Buyback -->
       <div class="table-container table-row-hover">
         <div class="table-toolbar">
-          <span class="table-title">素材回购申请 - 共 {{ total }} 条</span>
+          <span class="table-title">审核申请 - 共 {{ total }} 条</span>
         </div>
         <div v-if="loading" class="table-loading">加载中...</div>
-        <div v-else-if="rows.length === 0" class="table-empty">暂无回购记录</div>
+        <div v-else-if="rows.length === 0" class="table-empty">暂无审核记录</div>
         <table v-else>
           <thead>
             <tr>
+              <th>类型</th>
               <th>申请时间</th>
-              <th>用户名</th>
-              <th>素材名称</th>
-              <th>回购原因</th>
+              <th>申请人</th>
+              <th>申请内容</th>
               <th>状态</th>
               <th>操作</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="row in rows" :key="row._id">
+              <td><span class="badge badge-default">{{ typeLabel(row.type) }}</span></td>
               <td class="text-sm text-muted">{{ formatDate(row.created_at) }}</td>
-              <td style="font-weight:500">{{ row.user_id?.username || '-' }}</td>
-              <td>{{ row.payload?.item_name || '-' }}</td>
-              <td class="text-sm text-muted" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-                {{ row.payload?.reason || '-' }}
+              <td>
+                <div style="font-weight:500">{{ applicantName(row) }}</div>
+                <div class="text-sm text-muted">{{ applicantMeta(row) }}</div>
+              </td>
+              <td class="text-sm">
+                <div>{{ applicationTitle(row) }}</div>
+                <div v-if="applicationSubTitle(row)" class="text-muted" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                  {{ applicationSubTitle(row) }}
+                </div>
               </td>
               <td><span class="status-badge" :class="row.status">{{ statusLabel(row.status) }}</span></td>
               <td>
@@ -60,14 +72,15 @@
           <span class="pagination-info">第 {{ page }} / {{ totalPages }} 页，共 {{ total }} 条</span>
           <div class="pagination-controls">
             <button class="page-btn" :disabled="page <= 1" @click="changePage(page - 1)">&laquo;</button>
-            <template v-for="p in visiblePages" :key="p"><button class="page-btn" :class="{ active: p === page }" @click="changePage(p)">{{ p }}</button></template>
+            <template v-for="p in visiblePages" :key="p">
+              <button class="page-btn" :class="{ active: p === page }" @click="changePage(p)">{{ p }}</button>
+            </template>
             <button class="page-btn" :disabled="page >= totalPages" @click="changePage(page + 1)">&raquo;</button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Decide Modal -->
     <div v-if="decideModal.show" class="modal-overlay" @click.self="decideModal.show = false">
       <div class="modal-dialog">
         <div class="modal-header">
@@ -76,10 +89,17 @@
         </div>
         <div class="modal-body">
           <div class="import-desc mb-3">
-            <div class="import-desc-title">申请信息</div>
-            <p>用户：{{ decideModal.row?.user_id?.username || '-' }}</p>
-            <p>素材：{{ decideModal.row?.payload?.item_name || '-' }}</p>
-            <p v-if="decideModal.row?.payload?.reason">回购原因：{{ decideModal.row?.payload?.reason }}</p>
+            <div class="import-desc-title">{{ typeLabel(decideModal.row?.type) }}</div>
+            <template v-if="decideModal.row?.type === 'registration'">
+              <p>自定义 ID：{{ decideModal.row?.user_id?.username || decideModal.row?.payload?.username || '-' }}</p>
+              <p>平台 UID：{{ decideModal.row?.user_id?.uid || decideModal.row?.payload?.uid || '-' }}</p>
+              <p>QQ 邮箱：{{ decideModal.row?.user_id?.email || decideModal.row?.payload?.email || '-' }}</p>
+            </template>
+            <template v-else>
+              <p>用户：{{ decideModal.row?.user_id?.username || '-' }}</p>
+              <p>素材：{{ decideModal.row?.payload?.item_name || '-' }}</p>
+              <p v-if="decideModal.row?.payload?.reason">回购原因：{{ decideModal.row?.payload?.reason }}</p>
+            </template>
           </div>
 
           <div v-if="decideModal.row?.status === 'pending'">
@@ -91,8 +111,15 @@
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label">备注（可选）</label>
-              <textarea v-model="decideModal.remark" class="form-textarea" rows="3" placeholder="审批备注..." />
+              <label class="form-label">
+                {{ decideModal.decision === 'rejected' ? '拒绝说明' : '备注（可选）' }}
+              </label>
+              <textarea
+                v-model="decideModal.remark"
+                class="form-textarea"
+                rows="4"
+                :placeholder="decideModal.decision === 'rejected' ? '填写给用户的说明，注册审核拒绝时会通过邮件发送' : '审批备注...'"
+              />
             </div>
           </div>
           <div v-else>
@@ -138,7 +165,7 @@ const page = ref(1)
 const pageSize = 20
 const loading = ref(false)
 
-const filters = ref({ status: '' })
+const filters = ref({ type: '', status: 'pending' })
 
 const totalPages = computed(() => Math.ceil(total.value / pageSize))
 const visiblePages = computed(() => {
@@ -152,7 +179,8 @@ const visiblePages = computed(() => {
 async function loadData() {
   loading.value = true
   try {
-    const params = { page: page.value, limit: pageSize, type: 'buyback' }
+    const params = { page: page.value, limit: pageSize }
+    if (filters.value.type) params.type = filters.value.type
     if (filters.value.status) params.status = filters.value.status
     const res = await applicationsAPI.getAll(params)
     rows.value = res.applications || res.data || []
@@ -166,7 +194,7 @@ async function loadData() {
 }
 
 function search() { page.value = 1; loadData() }
-function resetFilters() { filters.value = { status: '' }; page.value = 1; loadData() }
+function resetFilters() { filters.value = { type: '', status: 'pending' }; page.value = 1; loadData() }
 function changePage(p) { page.value = p; loadData() }
 
 function formatDate(d) {
@@ -174,9 +202,37 @@ function formatDate(d) {
   return new Date(d).toLocaleDateString('zh-CN')
 }
 
+function typeLabel(type) {
+  const map = { registration: '注册审核', buyback: '素材回购' }
+  return map[type] || type || '-'
+}
+
 function statusLabel(s) {
   const map = { pending: '待审核', approved: '已通过', rejected: '已拒绝' }
   return map[s] || s
+}
+
+function applicantName(row) {
+  return row.user_id?.username || row.payload?.username || '-'
+}
+
+function applicantMeta(row) {
+  if (row.type === 'registration') {
+    return row.user_id?.email || row.payload?.email || '-'
+  }
+  return row.user_id?.qq || row.user_id?.platform_id || row.user_id?.email || '-'
+}
+
+function applicationTitle(row) {
+  if (row.type === 'registration') {
+    return `UID：${row.user_id?.uid || row.payload?.uid || '-'}`
+  }
+  return row.payload?.item_name || '-'
+}
+
+function applicationSubTitle(row) {
+  if (row.type === 'registration') return 'QQ 邮箱已验证，等待管理员审核'
+  return row.payload?.reason || ''
 }
 
 const decideModal = ref({
@@ -186,19 +242,26 @@ const decideModal = ref({
 
 function openDecide(row) {
   decideModal.value = {
-    show: true, row,
-    loading: false, decision: 'approved', remark: ''
+    show: true,
+    row,
+    loading: false,
+    decision: 'approved',
+    remark: ''
   }
 }
 
 async function submitDecide() {
   decideModal.value.loading = true
   try {
-    await applicationsAPI.decide(decideModal.value.row._id, {
+    const res = await applicationsAPI.decide(decideModal.value.row._id, {
       status: decideModal.value.decision,
       remark: decideModal.value.remark
     })
-    addToast('success', '审批成功', `申请已${decideModal.value.decision === 'approved' ? '通过' : '拒绝'}`)
+    addToast(
+      'success',
+      '审批成功',
+      res.message || `申请已${decideModal.value.decision === 'approved' ? '通过' : '拒绝'}`
+    )
     decideModal.value.show = false
     loadData()
   } catch (e) {
