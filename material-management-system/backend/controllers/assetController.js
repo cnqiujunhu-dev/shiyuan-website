@@ -5,6 +5,7 @@ const Item = require('../models/Item');
 const User = require('../models/User');
 const { syncUserVip } = require('../services/vipService');
 const logger = require('../config/logger');
+const { normalizeItem } = require('../utils/publicUrl');
 
 exports.getMyAssets = async (req, res) => {
   const { topic, artist, acquisition_type, page = 1, limit = 20 } = req.query;
@@ -45,7 +46,14 @@ exports.getMyAssets = async (req, res) => {
       .sort((a, b) => new Date(b.occurred_at) - new Date(a.occurred_at))
       .slice((pageNum - 1) * limitNum, pageNum * limitNum);
 
-    return res.json({ total, page: pageNum, ownerships: paginated });
+    return res.json({
+      total,
+      page: pageNum,
+      ownerships: paginated.map(ownership => ({
+        ...ownership,
+        item_id: normalizeItem(ownership.item_id)
+      }))
+    });
   } catch (err) {
     logger.error('getMyAssets error', { message: err.message });
     return res.status(500).json({ message: '服务器错误' });
@@ -68,10 +76,21 @@ exports.transferAsset = async (req, res) => {
     const ownership = await Ownership.findOne({
       _id: ownership_id,
       user_id: req.user.id,
-      acquisition_type: 'self',
+      acquisition_type: { $in: ['self', 'transfer_in'] },
+      transfer_locked: { $ne: true },
       active: true
     }).populate('item_id');
     if (!ownership) {
+      const lockedOwnership = await Ownership.findOne({
+        _id: ownership_id,
+        user_id: req.user.id,
+        acquisition_type: { $in: ['self', 'transfer_in'] },
+        transfer_locked: true,
+        active: true
+      }).lean();
+      if (lockedOwnership) {
+        return res.status(400).json({ message: '该素材不可转让' });
+      }
       return res.status(404).json({ message: '未找到可转让的素材记录' });
     }
     const item = ownership.item_id;
@@ -98,6 +117,7 @@ exports.transferAsset = async (req, res) => {
     const existingOwnership = await Ownership.findOne({
       user_id: targetUser._id,
       item_id: item._id,
+      acquisition_type: { $ne: 'transfer_out' },
       active: true
     });
     if (existingOwnership) {
@@ -112,7 +132,7 @@ exports.transferAsset = async (req, res) => {
       // Deactivate the original self ownership while keeping it for rollback recovery.
       await Ownership.findByIdAndUpdate(ownership._id, { active: false }, { session });
 
-      const [transferOutOwnership, transferInOwnership] = await Ownership.create([
+      const [transferOutOwnership, receiverOwnership] = await Ownership.create([
         {
           user_id: actor._id,
           item_id: item._id,
@@ -125,7 +145,7 @@ exports.transferAsset = async (req, res) => {
         {
           user_id: targetUser._id,
           item_id: item._id,
-          acquisition_type: 'transfer_in',
+          acquisition_type: 'self',
           points_delta: 0,
           occurred_at: now,
           delivery_link: ownership.delivery_link || item.delivery_link,
@@ -136,7 +156,7 @@ exports.transferAsset = async (req, res) => {
 
       await Ownership.findByIdAndUpdate(
         transferOutOwnership._id,
-        { replaced_by: transferInOwnership._id },
+        { replaced_by: receiverOwnership._id },
         { session }
       );
 
@@ -249,6 +269,7 @@ exports.sponsorAsset = async (req, res) => {
     const existingOwnership = await Ownership.findOne({
       user_id: targetUser._id,
       item_id: item._id,
+      acquisition_type: { $ne: 'transfer_out' },
       active: true
     });
     if (existingOwnership) {
@@ -359,6 +380,7 @@ exports.registerSponsor = async (req, res) => {
     const existingOwnership = await Ownership.findOne({
       user_id: targetUser._id,
       item_id: item._id,
+      acquisition_type: { $ne: 'transfer_out' },
       active: true
     });
     if (existingOwnership) {

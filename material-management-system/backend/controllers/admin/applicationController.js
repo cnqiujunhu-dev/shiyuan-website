@@ -17,31 +17,33 @@ async function executeBuyback(application) {
     throw new Error('回购链路缺失：未找到对应的转出记录');
   }
 
-  // 找到当前持有人的 transfer_in 记录
-  const transferIn = await Ownership.findById(transferOut.replaced_by).populate('item_id', 'delivery_link price');
-  if (!transferIn || !transferIn.active) {
+  // 找到当前持有人的有效记录。新转让链路中接收方仍显示为“自用”。
+  const currentOwnership = await Ownership.findById(transferOut.replaced_by).populate('item_id', 'delivery_link price');
+  if (!currentOwnership || !currentOwnership.active) {
     throw new Error('回购链路缺失：未找到当前有效持有记录');
   }
 
-  const item = transferIn.item_id;
-  const currentHolderId = transferIn.user_id;
+  const item = currentOwnership.item_id;
+  const currentHolderId = currentOwnership.user_id;
   const now = new Date();
 
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
     // 停用当前持有人的所有权
-    await Ownership.findByIdAndUpdate(transferIn._id, { active: false }, { session });
+    await Ownership.findByIdAndUpdate(currentOwnership._id, { active: false }, { session });
 
-    // 为申请人创建新的所有权（buyback 类型）
+    // 为申请人恢复“自用”所有权，但回购获得的素材不可再次转让。
     const [newOwnership] = await Ownership.create([{
       user_id: applicantId,
       item_id: item._id || item_id,
-      acquisition_type: 'transfer_in',
+      acquisition_type: 'self',
       points_delta: 0,
       occurred_at: now,
       delivery_link: item.delivery_link,
       source_user_id: currentHolderId,
+      transfer_locked: true,
+      transfer_locked_reason: 'buyback',
       active: true
     }], { session });
 

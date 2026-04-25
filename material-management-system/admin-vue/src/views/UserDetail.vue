@@ -146,7 +146,7 @@ function formatDate(d) {
 }
 
 function typeLabel(t) {
-  const map = { self: '自用', sponsor: '已赞助', sponsored: '被赞助', sponsor_pending: '赞助待定', transfer_in: '接转', transfer_out: '转出' }
+  const map = { self: '自用', sponsor: '已赞助', sponsored: '被赞助', sponsor_pending: '赞助待定', transfer_in: '自用', transfer_out: '转出记录' }
   return map[t] || t
 }
 

@@ -37,6 +37,29 @@ async function request(url, options = {}) {
   return data
 }
 
+async function download(url, filename) {
+  const res = await fetch(BASE + url, { headers: getHeaders(false) })
+  if (!res.ok) {
+    let message = `下载失败（${res.status}）`
+    try {
+      const data = await res.json()
+      message = data.message || data.error || message
+    } catch {
+      // Keep fallback message.
+    }
+    throw new Error(message)
+  }
+  const blob = await res.blob()
+  const href = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = href
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(href)
+}
+
 // Auth
 export const authAPI = {
   login: (data) => request('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
@@ -50,6 +73,8 @@ export const itemsAPI = {
   getById: (id) => request(`/admin/items/${id}`),
   importBatch: (data) => request('/admin/items/import', { method: 'POST', body: JSON.stringify(data) }),
   getOwnerships: (id, params = {}) => request(`/admin/items/${id}/ownerships?` + new URLSearchParams(params)),
+  updateOwnership: (id, ownershipId, data) => request(`/admin/items/${id}/ownerships/${ownershipId}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  exportOwnerships: (id, filename = '授权名单.csv') => download(`/admin/items/${id}/ownerships/export`, filename),
 }
 
 // Admin - Transactions

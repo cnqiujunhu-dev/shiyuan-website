@@ -118,8 +118,11 @@ exports.importTransactions = async (req, res) => {
       if (rec.item_id) {
         item = await Item.findById(rec.item_id);
       }
+      if (!item && rec.sku_code) {
+        item = await Item.findOne({ sku_code: String(rec.sku_code).trim() });
+      }
       if (!item && rec.item_name) {
-        item = await Item.findOne({ name: new RegExp(rec.item_name.trim(), 'i') });
+        item = await Item.findOne({ name: new RegExp(escapeRegExp(rec.item_name.trim()), 'i') });
       }
       if (!item) {
         errors.push({ index: i, record: rec, error: '找不到商品' });
@@ -242,10 +245,19 @@ exports.importAuthorizations = async (req, res) => {
     const rec = records[i];
     try {
       const occurredAt = resolveOccurredAt(rec);
-      // Find item by name
-      const item = await Item.findOne({ name: new RegExp(rec.name.trim(), 'i') });
+      const itemKeyword = String(rec.sku_code || rec.name || rec.item_name || '').trim();
+      if (!itemKeyword) {
+        errors.push({ index: i, record: rec, error: '缺少素材名称或 SKU 编码' });
+        continue;
+      }
+      const item = await Item.findOne({
+        $or: [
+          { sku_code: itemKeyword },
+          { name: new RegExp(escapeRegExp(itemKeyword), 'i') }
+        ]
+      });
       if (!item) {
-        errors.push({ index: i, record: rec, error: `找不到素材: ${rec.name}` });
+        errors.push({ index: i, record: rec, error: `找不到素材: ${itemKeyword}` });
         continue;
       }
 
@@ -361,7 +373,7 @@ exports.importAuthorizations = async (req, res) => {
         await Transaction.create(transactionDocs);
       }
 
-      imported.push({ index: i, name: rec.name, user1: user1.username });
+      imported.push({ index: i, name: item.name, user1: user1.username });
     } catch (err) {
       errors.push({ index: i, record: rec, error: err.message });
     }

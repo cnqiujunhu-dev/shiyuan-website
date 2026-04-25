@@ -11,16 +11,16 @@
 
         <form @submit.prevent="handleRegister" v-if="!registrationComplete">
           <div class="form-group">
-            <label class="form-label">用户名 <span class="text-muted text-xs">（3-20 位字母/数字/下划线）</span></label>
+            <label class="form-label">圈名 ID <span class="text-muted text-xs">（2-30 位，可含中文或常用符号）</span></label>
             <input
               v-model="form.username"
               type="text"
               class="form-input"
               :class="{ error: errors.username }"
-              placeholder="请输入用户名"
+              placeholder="请输入圈名 ID"
               autocomplete="username"
-              minlength="3"
-              maxlength="20"
+              minlength="2"
+              maxlength="30"
             />
             <div class="form-error" v-if="errors.username">{{ errors.username }}</div>
           </div>
@@ -139,12 +139,13 @@ function clearErrors() {
 function validateAccount() {
   clearErrors()
   let valid = true
-  if (form.username.length < 3) {
-    errors.username = '用户名至少 3 位'
+  const username = form.username.trim()
+  if (username.length < 2 || username.length > 30) {
+    errors.username = '圈名 ID 长度须为 2-30 位'
     valid = false
   }
-  if (!/^[a-zA-Z0-9_\u4e00-\u9fa5]+$/.test(form.username)) {
-    errors.username = '用户名只能包含字母、数字、下划线或中文'
+  if (!/^[^\r\n\t<>]+$/.test(username)) {
+    errors.username = '圈名 ID 不能包含换行或尖括号'
     valid = false
   }
   if (form.password.length < 6) {
@@ -201,7 +202,7 @@ async function sendCode() {
   if (!validateAccount()) return
   loading.value = true
   try {
-    await authAPI.sendRegisterCode({ username: form.username, email: form.email })
+    await authAPI.sendRegisterCode({ username: form.username.trim(), email: form.email })
     codeSent.value = true
     successMsg.value = '验证码已发送，请在 10 分钟内完成注册。'
     startResendCountdown(60)
@@ -222,7 +223,7 @@ async function handleRegister() {
   loading.value = true
   try {
     const res = await authAPI.register({
-      username: form.username,
+      username: form.username.trim(),
       email: form.email,
       password: form.password,
       code: form.code.trim()

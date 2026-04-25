@@ -2,8 +2,8 @@
   <div class="page">
     <div class="page-header">
       <div>
-        <h1 class="page-title">{{ isEdit ? '编辑商品' : '新增商品' }}</h1>
-        <p class="page-subtitle">{{ isEdit ? '修改商品信息' : '添加新的素材商品' }}</p>
+        <h1 class="page-title">{{ isEdit ? '编辑素材' : '新增素材' }}</h1>
+        <p class="page-subtitle">{{ isEdit ? '修改店铺素材信息' : '添加新的店铺素材' }}</p>
       </div>
       <router-link to="/items" class="btn btn-secondary">&larr; 返回列表</router-link>
     </div>
@@ -22,8 +22,8 @@
             <span class="form-hint">按时间顺序编码排序</span>
           </div>
           <div class="form-group">
-            <label class="form-label">商品名称 <span style="color:#ef4444;">*</span></label>
-            <input v-model="form.name" type="text" class="form-input" placeholder="请输入商品名称" required />
+            <label class="form-label">素材名称 <span style="color:#ef4444;">*</span></label>
+            <input v-model="form.name" type="text" class="form-input" placeholder="请输入素材名称" required />
             <span v-if="errors.name" class="form-error">{{ errors.name }}</span>
           </div>
           <div class="form-group">
@@ -96,9 +96,9 @@
           <div class="form-group" style="grid-column:1/-1;">
             <label class="checkbox-item">
               <input type="checkbox" v-model="form.priority_only" />
-              设为 VIP 优先购商品
+              设为 VIP 优先购素材
             </label>
-            <div class="form-hint">开启后，非 VIP 用户无法购买该商品。</div>
+            <div class="form-hint">开启后，非 VIP 用户无法购买该素材。</div>
           </div>
           <div class="form-group" style="grid-column:1/-1;">
             <label class="checkbox-item">
@@ -146,7 +146,7 @@
 
       <div class="form-actions">
         <button type="submit" class="btn btn-primary" :disabled="saving">
-          {{ saving ? '保存中...' : (isEdit ? '保存修改' : '创建商品') }}
+          {{ saving ? '保存中...' : (isEdit ? '保存修改' : '创建素材') }}
         </button>
         <router-link to="/items" class="btn btn-secondary">取消</router-link>
       </div>
@@ -175,7 +175,7 @@ const errors = ref({})
 const tagInput = ref('')
 const topicInput = ref('')
 
-const availableTopics = ['立绘', 'CG', '场景', '通加', 'UI', '打光', '空境', '微']
+const availableTopics = ['立绘', 'CG', '场景', '通加', 'UI', '打光', '空境', '徽章', '封面']
 
 const selectedFile = ref(null)
 const previewSrc = ref('')
@@ -233,7 +233,7 @@ function addTopic() {
 // ── Validation ────────────────────────────────────────────────────────────────
 function validate() {
   const e = {}
-  if (!form.value.name.trim()) e.name = '请输入商品名称'
+  if (!form.value.name.trim()) e.name = '请输入素材名称'
   if (!form.value.artist.trim()) e.artist = '请输入画师名称'
   if (form.value.price === '' || form.value.price === null || isNaN(Number(form.value.price))) {
     e.price = '请输入有效的价格'
@@ -265,7 +265,7 @@ async function loadItem() {
     }
     if (item.preview_url) previewSrc.value = item.preview_url
   } catch {
-    addToast('加载商品信息失败', 'error')
+    addToast('加载素材信息失败', 'error')
   } finally {
     loadingItem.value = false
   }
@@ -300,7 +300,7 @@ async function handleSubmit() {
     } else {
       await itemsAPI.create(fd)
     }
-    addToast(isEdit.value ? '商品已更新' : '商品创建成功')
+    addToast(isEdit.value ? '素材已更新' : '素材创建成功')
     router.push('/items')
   } catch (e) {
     submitError.value = e?.message || '操作失败，请重试'

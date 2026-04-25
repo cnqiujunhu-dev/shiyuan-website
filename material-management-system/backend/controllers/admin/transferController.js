@@ -93,9 +93,9 @@ exports.rollbackTransfer = async (req, res) => {
       return res.status(404).json({ message: '转让记录不存在' });
     }
 
-    const transferInOwnership = await Ownership.findById(transferOutOwnership.replaced_by);
-    if (!transferInOwnership) {
-      return res.status(404).json({ message: '找不到对应的转入记录' });
+    const receiverOwnership = await Ownership.findById(transferOutOwnership.replaced_by);
+    if (!receiverOwnership) {
+      return res.status(404).json({ message: '找不到对应的接收方记录' });
     }
 
     const originalOwnership = await Ownership.findOne({
@@ -113,7 +113,7 @@ exports.rollbackTransfer = async (req, res) => {
       }
 
       await Ownership.findByIdAndDelete(transferOutOwnership._id, { session });
-      await Ownership.findByIdAndDelete(transferInOwnership._id, { session });
+      await Ownership.findByIdAndDelete(receiverOwnership._id, { session });
 
       // 精确匹配转让双方的交易记录，避免误删
       await Transaction.deleteMany({
@@ -122,7 +122,7 @@ exports.rollbackTransfer = async (req, res) => {
         type: { $in: ['transfer_out', 'transfer_in'] },
         $or: [
           { actor_id: transferOutOwnership.user_id },
-          { actor_id: transferInOwnership.user_id }
+          { actor_id: receiverOwnership.user_id }
         ]
       }, { session });
 
@@ -134,15 +134,15 @@ exports.rollbackTransfer = async (req, res) => {
         );
       }
 
-      if (transferInOwnership.user_id && transferInOwnership.points_delta) {
+      if (receiverOwnership.user_id && receiverOwnership.points_delta) {
         await User.findByIdAndUpdate(
-          transferInOwnership.user_id,
-          { $inc: { points_total: -transferInOwnership.points_delta } },
+          receiverOwnership.user_id,
+          { $inc: { points_total: -receiverOwnership.points_delta } },
           { session }
         );
         // 确保积分不为负
         await User.updateOne(
-          { _id: transferInOwnership.user_id, points_total: { $lt: 0 } },
+          { _id: receiverOwnership.user_id, points_total: { $lt: 0 } },
           { $set: { points_total: 0 } },
           { session }
         );

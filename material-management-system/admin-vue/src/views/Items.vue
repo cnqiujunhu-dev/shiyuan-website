@@ -2,20 +2,20 @@
   <div class="page">
     <div class="page-header">
       <div>
-        <h1 class="page-title">商品列表</h1>
-        <p class="page-subtitle">管理所有素材商品</p>
+        <h1 class="page-title">店铺素材</h1>
+        <p class="page-subtitle">管理素材、预览图与授权名单</p>
       </div>
       <div style="display:flex;gap:8px;">
         <button class="btn btn-secondary" @click="showImport = !showImport">批量导入</button>
-        <router-link to="/items/new" class="btn btn-primary">+ 新增商品</router-link>
+        <router-link to="/items/new" class="btn btn-primary">+ 新增素材</router-link>
       </div>
     </div>
 
     <!-- Search -->
     <div class="search-bar">
       <div class="search-group">
-        <label class="search-label">商品名称</label>
-        <input v-model="search.name" class="search-input" placeholder="搜索商品名称..." @keyup.enter="doSearch" />
+        <label class="search-label">素材名称</label>
+        <input v-model="search.name" class="search-input" placeholder="搜索素材名称..." @keyup.enter="doSearch" />
       </div>
       <div class="search-group">
         <label class="search-label">状态</label>
@@ -33,14 +33,14 @@
     <!-- Batch Import -->
     <div v-if="showImport" class="table-container" style="margin-bottom:16px;">
       <div class="table-toolbar">
-        <span class="table-title">批量导入商品</span>
+        <span class="table-title">批量导入店铺素材</span>
       </div>
       <div style="padding:16px;">
-        <p class="text-sm text-muted" style="margin-bottom:8px;">请输入 JSON 数组，每个对象包含：sku_code, name(必填), artist(必填), price(必填), topics, categories, delivery_link, status</p>
+        <p class="text-sm text-muted" style="margin-bottom:8px;">请输入 JSON 数组，每个对象包含：sku_code, preview_url, name(必填), topics, artist(必填), price(必填), delivery_link, status（在售/结车/下架）</p>
         <div style="background:#f9fafb;padding:8px 12px;border-radius:6px;font-size:0.8rem;margin-bottom:12px;overflow-x:auto;">
           <pre style="margin:0;">[
-  { "sku_code": "260101", "name": "素材A", "artist": "画师X", "price": 100, "topics": ["立绘","CG"], "delivery_link": "https://..." },
-  { "sku_code": "260102", "name": "素材B", "artist": "画师Y", "price": 200, "topics": ["场景"] }
+  { "sku_code": "260101", "preview_url": "https://...", "name": "素材A", "artist": "画师X", "price": 100, "topics": ["立绘","CG"], "delivery_link": "https://...", "status": "在售" },
+  { "sku_code": "260102", "name": "素材B", "artist": "画师Y", "price": 200, "topics": "场景/封面", "status": "结车" }
 ]</pre>
         </div>
         <textarea
@@ -64,7 +64,7 @@
     <!-- Table -->
     <div class="table-container">
       <div class="table-toolbar">
-        <span class="table-title">共 {{ total }} 件商品</span>
+        <span class="table-title">共 {{ total }} 件素材</span>
       </div>
 
       <table style="width:100%;border-collapse:collapse;">
@@ -72,7 +72,7 @@
           <tr style="border-bottom:1px solid var(--border,#e5e7eb);">
             <th style="padding:12px 16px;text-align:left;font-weight:600;font-size:13px;color:var(--text-secondary,#6b7280);">SKU</th>
             <th style="padding:12px 16px;text-align:left;font-weight:600;font-size:13px;color:var(--text-secondary,#6b7280);">结车图</th>
-            <th style="padding:12px 16px;text-align:left;font-weight:600;font-size:13px;color:var(--text-secondary,#6b7280);">商品名称</th>
+            <th style="padding:12px 16px;text-align:left;font-weight:600;font-size:13px;color:var(--text-secondary,#6b7280);">素材名称</th>
             <th style="padding:12px 16px;text-align:left;font-weight:600;font-size:13px;color:var(--text-secondary,#6b7280);">画师</th>
             <th style="padding:12px 16px;text-align:left;font-weight:600;font-size:13px;color:var(--text-secondary,#6b7280);">价格(pts)</th>
             <th style="padding:12px 16px;text-align:left;font-weight:600;font-size:13px;color:var(--text-secondary,#6b7280);">状态</th>
@@ -84,7 +84,7 @@
             <td colspan="7" class="table-loading">加载中...</td>
           </tr>
           <tr v-else-if="items.length === 0">
-            <td colspan="7" class="table-empty">暂无商品数据</td>
+            <td colspan="7" class="table-empty">暂无素材数据</td>
           </tr>
           <template v-else>
             <tr v-for="item in items" :key="item._id" class="table-row-hover">
@@ -104,6 +104,7 @@
               <td style="padding:10px 16px;">
                 <div style="display:flex;gap:8px;flex-wrap:wrap;">
                   <router-link :to="`/items/${item._id}/edit`" class="btn btn-sm btn-secondary">编辑</router-link>
+                  <router-link :to="`/items/${item._id}/ownerships`" class="btn btn-sm btn-secondary">授权名单</router-link>
                   <button
                     :class="['btn', 'btn-sm', item.status === 'on_sale' ? 'btn-warning' : 'btn-primary']"
                     :disabled="!!toggling[item._id]"
@@ -219,7 +220,7 @@ async function fetchItems() {
     items.value = data.items || []
     total.value = data.total || 0
   } catch {
-    addToast('加载商品列表失败', 'error')
+    addToast('加载店铺素材失败', 'error')
   } finally {
     loading.value = false
   }

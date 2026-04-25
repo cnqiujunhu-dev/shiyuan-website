@@ -171,7 +171,7 @@ const total = ref(0)
 const page = ref(1)
 const limit = ref(20)
 
-const topics = ['立绘', 'CG', '场景', '通加', 'UI', '打光', '空境', '微']
+const topics = ['立绘', 'CG', '场景', '通加', 'UI', '打光', '空境', '徽章', '封面']
 const filters = reactive({ topic: '', artist: '', acquisition_type: '' })
 
 // Transfer Modal

@@ -22,11 +22,11 @@
           <div class="sidebar-group-label">素材管理</div>
           <RouterLink to="/items" class="sidebar-item" :class="{ active: isActive('/items') && !isActive('/items/new') }">
             <span class="icon">🖼️</span>
-            <span>商品列表</span>
+            <span>店铺素材</span>
           </RouterLink>
           <RouterLink to="/items/new" class="sidebar-item" :class="{ active: isActive('/items/new') }">
             <span class="icon">➕</span>
-            <span>新增商品</span>
+            <span>新增素材</span>
           </RouterLink>
         </div>
 

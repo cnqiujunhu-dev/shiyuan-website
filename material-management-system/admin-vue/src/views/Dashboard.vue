@@ -34,9 +34,9 @@
       <div class="stat-grid">
         <div class="stat-card">
           <div class="stat-icon">🖼️</div>
-          <div class="stat-label">素材商品</div>
+          <div class="stat-label">店铺素材</div>
           <div class="stat-value">--</div>
-          <div class="stat-trend">前往商品列表查看</div>
+          <div class="stat-trend">前往店铺素材查看</div>
         </div>
         <div class="stat-card">
           <div class="stat-icon">💰</div>
@@ -76,11 +76,11 @@
         <div class="quick-links">
           <RouterLink to="/items" class="quick-link-card">
             <div class="quick-link-icon">🖼️</div>
-            <div class="quick-link-title">商品管理</div>
+            <div class="quick-link-title">店铺素材</div>
           </RouterLink>
           <RouterLink to="/items/new" class="quick-link-card">
             <div class="quick-link-icon">➕</div>
-            <div class="quick-link-title">新增商品</div>
+            <div class="quick-link-title">新增素材</div>
           </RouterLink>
           <RouterLink to="/transactions" class="quick-link-card">
             <div class="quick-link-icon">💰</div>

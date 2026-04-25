@@ -28,7 +28,7 @@
         <ul style="margin:8px 0 12px 16px;font-size:13px;line-height:2;">
           <li><code>type</code> — 交易类型：<code>purchase_self</code>（自购）/ <code>purchase_sponsor</code>（赞助）（必填）</li>
           <li><code>actor_qq</code> — 操作方 QQ 号（必填）</li>
-          <li><code>item_name</code> — 素材名称（必填，需与系统中已有商品匹配）</li>
+          <li><code>sku_code</code> 或 <code>item_name</code> — SKU 编码或素材名称（必填，需与系统中已有素材匹配）</li>
           <li><code>price</code> — 交易价格，单位积分（必填）</li>
           <li><code>occurred_at</code> — 交易日期，格式 <code>YYYY-MM-DD</code>（必填）</li>
           <li><code>target_qq</code> — 目标方 QQ（赞助类型必填）</li>
@@ -37,7 +37,7 @@
       </div>
 
       <div class="info-text" style="margin:16px 0;">
-        <strong>导入规则：</strong>操作方/目标方需已在系统中注册（通过 QQ 匹配）。素材名称需与系统中现有商品精确匹配。重复导入同一条记录不会自动去重。
+        <strong>导入规则：</strong>操作方/目标方会优先通过 QQ 或圈名 ID 匹配；未匹配到时会创建占位用户，后续可在顾客详情中补充信息。素材名称需与系统中现有素材匹配。重复导入同一条记录不会自动去重。
       </div>
 
       <div class="form-group" style="margin-bottom:16px;">
@@ -79,7 +79,7 @@
         <div class="import-desc-title">授权信息格式说明</div>
         <p style="margin:8px 0;">请将授权记录整理为 JSON 数组格式，每条记录支持以下字段：</p>
         <ul style="margin:8px 0 12px 16px;font-size:13px;line-height:2;">
-          <li><code>name</code> — 素材名称（必填，需与系统中已有商品匹配）</li>
+          <li><code>sku_code</code> 或 <code>name</code> — SKU 编码或素材名称（必填，需与系统中已有素材匹配）</li>
           <li><code>acquisition_type_1</code> — 用户1获取类型：自用 / 已赞助 / 赞助待定（必填）</li>
           <li><code>id1</code> — 用户1 ID（与 qq1 至少填一项）</li>
           <li><code>qq1</code> — 用户1 QQ</li>
@@ -163,7 +163,8 @@ const txExampleJSON = `[
 
 const authExampleJSON = `[
   {
-    "name": "夜渡",
+    "sku_code": "251202",
+    "name": "佛本无相",
     "acquisition_type_1": "自用",
     "id1": "2673",
     "qq1": "",
@@ -236,7 +237,7 @@ function validateTx() {
       if (!item.type) errors.push(`第 ${n} 条：缺少 type 字段`)
       else if (!VALID_TYPES.includes(item.type)) errors.push(`第 ${n} 条：type 值无效（${item.type}）`)
       if (!item.actor_qq) errors.push(`第 ${n} 条：缺少 actor_qq 字段`)
-      if (!item.item_name) errors.push(`第 ${n} 条：缺少 item_name 字段`)
+      if (!item.item_name && !item.sku_code) errors.push(`第 ${n} 条：缺少 item_name 或 sku_code 字段`)
       if (item.price == null) errors.push(`第 ${n} 条：缺少 price 字段`)
       if (!item.occurred_at) errors.push(`第 ${n} 条：缺少 occurred_at 字段`)
       if (item.type === 'purchase_sponsor' && !item.target_qq) {
@@ -276,7 +277,7 @@ function validateAuth() {
     const VALID_TYPES = ['自用', '已赞助', '被赞助', '赞助待定', '赞待', 'self', 'sponsor', 'sponsored', 'sponsor_pending']
     data.forEach((item, idx) => {
       const n = idx + 1
-      if (!item.name) errors.push(`第 ${n} 条：缺少 name 字段`)
+      if (!item.name && !item.sku_code) errors.push(`第 ${n} 条：缺少 name 或 sku_code 字段`)
       const t1 = item.acquisition_type_1 || item.type1
       if (!t1) errors.push(`第 ${n} 条：缺少 acquisition_type_1 字段`)
       else if (!VALID_TYPES.includes(t1)) errors.push(`第 ${n} 条：acquisition_type_1 值无效（${t1}）`)

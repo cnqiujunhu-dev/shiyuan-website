@@ -15,6 +15,8 @@ const ownershipSchema = new mongoose.Schema(
     source_user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     target_user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     replaced_by: { type: mongoose.Schema.Types.ObjectId, ref: 'Ownership' },
+    transfer_locked: { type: Boolean, default: false },
+    transfer_locked_reason: { type: String },
     active: { type: Boolean, default: true }
   },
   {

@@ -6,6 +6,7 @@ const User = require('../models/User');
 const VipLevel = require('../models/VipLevel');
 const { syncUserVip } = require('../services/vipService');
 const logger = require('../config/logger');
+const { normalizeItem } = require('../utils/publicUrl');
 
 exports.getShopItems = async (req, res) => {
   const { topic, artist, status, page = 1, limit = 20 } = req.query;
@@ -28,7 +29,7 @@ exports.getShopItems = async (req, res) => {
       .skip((pageNum - 1) * limitNum)
       .limit(limitNum)
       .lean();
-    return res.json({ total, page: pageNum, items });
+    return res.json({ total, page: pageNum, items: items.map(normalizeItem) });
   } catch (err) {
     logger.error('getShopItems error', { message: err.message });
     return res.status(500).json({ message: '服务器错误' });
@@ -70,7 +71,12 @@ exports.buySelf = async (req, res) => {
     if (item.queue_enabled) {
       return res.status(400).json({ message: '该商品开启了排队限购，请使用插队购买通道' });
     }
-    const existing = await Ownership.findOne({ user_id: req.user.id, item_id: item._id, active: true });
+    const existing = await Ownership.findOne({
+      user_id: req.user.id,
+      item_id: item._id,
+      acquisition_type: { $ne: 'transfer_out' },
+      active: true
+    });
     if (existing) {
       return res.status(400).json({ message: '您已拥有该素材' });
     }
@@ -141,7 +147,12 @@ exports.skipQueueBuy = async (req, res) => {
     if (actor.skip_queue_remaining <= 0) {
       return res.status(400).json({ message: '本年度插队次数已用完' });
     }
-    const existing = await Ownership.findOne({ user_id: req.user.id, item_id: item._id, active: true });
+    const existing = await Ownership.findOne({
+      user_id: req.user.id,
+      item_id: item._id,
+      acquisition_type: { $ne: 'transfer_out' },
+      active: true
+    });
     if (existing) {
       return res.status(400).json({ message: '您已拥有该素材' });
     }

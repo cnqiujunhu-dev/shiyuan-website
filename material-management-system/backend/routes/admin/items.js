@@ -12,5 +12,7 @@ router.put('/:id', adminGuard, itemController.uploadMiddleware, itemController.u
 router.get('/', adminGuard, itemController.getItems);
 router.get('/:id', adminGuard, itemController.getItemById);
 router.get('/:id/ownerships', adminGuard, itemController.getItemOwnerships);
+router.get('/:id/ownerships/export', adminGuard, itemController.exportItemOwnerships);
+router.patch('/:id/ownerships/:ownershipId', adminGuard, itemController.updateItemOwnership);
 
 module.exports = router;

@@ -35,7 +35,7 @@
     <!-- Actions -->
     <div class="asset-actions">
       <!-- 自用: 下载 + 转让 -->
-      <template v-if="ownership.acquisition_type === 'self'">
+      <template v-if="isSelfType">
         <button
           v-if="deliveryUrl"
           class="btn btn-secondary btn-sm"
@@ -46,7 +46,8 @@
           class="btn btn-primary btn-sm"
           @click="emit('transfer', ownership._id || ownership.id)"
         >转让</button>
-        <span v-if="!canTransfer && auth.vipLevel < 2" class="text-xs text-muted" style="display:block;max-width:100px;">VIP2 以上可转让</span>
+        <span v-if="!canTransfer && ownership.transfer_locked" class="text-xs text-muted" style="display:block;max-width:100px;">回购素材不可转让</span>
+        <span v-else-if="!canTransfer && auth.vipLevel < 2" class="text-xs text-muted" style="display:block;max-width:100px;">VIP2 以上可转让</span>
       </template>
 
       <!-- 已赞助: 查看被赞助方 -->
@@ -164,7 +165,7 @@ const acquisitionTypeMap = {
   sponsor: '已赞助',
   sponsored: '被赞助',
   sponsor_pending: '赞助待定',
-  transfer_in: '转入',
+  transfer_in: '自用',
 }
 
 const acquisitionLabel = computed(() => {
@@ -181,7 +182,11 @@ const acquisitionBadgeClass = computed(() => {
 })
 
 const canTransfer = computed(() => {
-  return props.ownership.acquisition_type === 'self' && auth.vipLevel >= 2
+  return isSelfType.value && auth.vipLevel >= 2 && !props.ownership.transfer_locked
+})
+
+const isSelfType = computed(() => {
+  return props.ownership.acquisition_type === 'self' || props.ownership.acquisition_type === 'transfer_in'
 })
 
 function formatDate(val) {

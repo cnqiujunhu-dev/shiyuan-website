@@ -206,17 +206,17 @@ async function testTransferAndBuyback() {
   assert.ok(transferOut, 'transfer_out ownership should exist');
   assert.equal(transferOut.active, true, 'transfer_out ownership should stay active until buyback closes it');
   assert.equal(objectId(transferOut.target_user_id), objectId(toUser), 'transfer_out should point to receiver');
-  assert.ok(transferOut.replaced_by, 'transfer_out should point to transfer_in via replaced_by');
+  assert.ok(transferOut.replaced_by, 'transfer_out should point to receiver ownership via replaced_by');
 
-  const transferIn = await Ownership.findOne({
+  const receiverOwnership = await Ownership.findOne({
     user_id: toUser._id,
     item_id: item._id,
-    acquisition_type: 'transfer_in'
+    acquisition_type: 'self'
   }).lean();
-  assert.ok(transferIn, 'receiver transfer_in ownership should exist');
-  assert.equal(transferIn.active, true, 'receiver transfer_in should be active');
-  assert.equal(transferIn.delivery_link, item.delivery_link, 'receiver should receive delivery link');
-  assert.equal(objectId(transferOut.replaced_by), objectId(transferIn), 'transfer_out should reference receiver record');
+  assert.ok(receiverOwnership, 'receiver self ownership should exist');
+  assert.equal(receiverOwnership.active, true, 'receiver self ownership should be active');
+  assert.equal(receiverOwnership.delivery_link, item.delivery_link, 'receiver should receive delivery link');
+  assert.equal(objectId(transferOut.replaced_by), objectId(receiverOwnership), 'transfer_out should reference receiver record');
 
   const transferTransactions = await Transaction.find({ item_id: item._id }).lean();
   assert.equal(transferTransactions.length, 2, 'transfer should create two transactions');
@@ -266,17 +266,18 @@ async function testTransferAndBuyback() {
   assert.equal(transferOutAfterBuyback.active, false, 'buyback should close original transfer_out');
   assert.notEqual(
     objectId(transferOutAfterBuyback.replaced_by),
-    objectId(transferIn),
+    objectId(receiverOwnership),
     'closed transfer_out should reference the recovered owner record'
   );
 
-  const receiverAfterBuyback = await Ownership.findById(transferIn._id).lean();
-  assert.equal(receiverAfterBuyback.active, false, 'buyback should deactivate receiver transfer_in');
+  const receiverAfterBuyback = await Ownership.findById(receiverOwnership._id).lean();
+  assert.equal(receiverAfterBuyback.active, false, 'buyback should deactivate receiver ownership');
 
   const recoveredOwnership = await Ownership.findById(transferOutAfterBuyback.replaced_by).lean();
   assert.ok(recoveredOwnership, 'buyback should create recovered ownership');
   assert.equal(objectId(recoveredOwnership.user_id), objectId(fromUser), 'recovered ownership should belong to applicant');
-  assert.equal(recoveredOwnership.acquisition_type, 'transfer_in', 'recovered ownership should use transfer_in type');
+  assert.equal(recoveredOwnership.acquisition_type, 'self', 'recovered ownership should use self type');
+  assert.equal(recoveredOwnership.transfer_locked, true, 'buyback ownership should be transfer locked');
   assert.equal(recoveredOwnership.active, true, 'recovered ownership should be active');
 
   const fromAfterBuyback = await User.findById(fromUser._id).lean();

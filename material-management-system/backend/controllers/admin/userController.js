@@ -1,6 +1,7 @@
 const User = require('../../models/User');
 const auditService = require('../../services/auditService');
 const logger = require('../../config/logger');
+const { normalizeItem } = require('../../utils/publicUrl');
 
 function serializeUser(userDoc) {
   const user = userDoc.toObject ? userDoc.toObject() : userDoc;
@@ -45,7 +46,13 @@ exports.getUserDetail = async (req, res) => {
       .sort({ occurred_at: -1 })
       .lean();
 
-    return res.json({ user: serializeUser(user), ownerships });
+    return res.json({
+      user: serializeUser(user),
+      ownerships: ownerships.map(ownership => ({
+        ...ownership,
+        item_id: normalizeItem(ownership.item_id)
+      }))
+    });
   } catch (err) {
     logger.error('getUserDetail error', { message: err.message });
     return res.status(500).json({ message: '服务器错误' });

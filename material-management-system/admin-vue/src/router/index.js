@@ -38,6 +38,11 @@ const routes = [
         component: () => import('../views/ItemForm.vue')
       },
       {
+        path: 'items/:id/ownerships',
+        name: 'ItemOwnerships',
+        component: () => import('../views/ItemOwnerships.vue')
+      },
+      {
         path: 'transactions',
         name: 'Transactions',
         component: () => import('../views/Transactions.vue')
