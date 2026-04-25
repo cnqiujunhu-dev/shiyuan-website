@@ -53,6 +53,7 @@ export const authAPI = {
 // Me
 export const meAPI = {
   getSummary: () => request('/me/summary'),
+  addIdentity: (data) => request('/me/identities', { method: 'POST', body: JSON.stringify(data) }),
   getActivities: (params = {}) => request('/me/activities?' + new URLSearchParams(params)),
 }
 

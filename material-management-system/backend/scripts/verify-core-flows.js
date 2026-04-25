@@ -17,6 +17,7 @@ const RegistrationVerification = require('../models/RegistrationVerification');
 const emailService = require('../services/emailService');
 const { seedVipLevels } = require('../services/vipService');
 const authController = require('../controllers/authController');
+const meController = require('../controllers/meController');
 const assetController = require('../controllers/assetController');
 const applicationController = require('../controllers/applicationController');
 const adminApplicationController = require('../controllers/admin/applicationController');
@@ -122,7 +123,7 @@ async function testVerifiedEmailRegistration() {
 
     const sendCodeResult = await callController(authController.sendRegisterCode, {
       user: {},
-      body: { email: '123456@qq.com', username: 'verified_user' }
+      body: { qq: '123456', username: 'verified_user' }
     });
     expectStatus(sendCodeResult, 200, 'send registration code');
     assert.equal(capturedEmail, '123456@qq.com', 'registration email should be normalized');
@@ -136,9 +137,10 @@ async function testVerifiedEmailRegistration() {
       user: {},
       body: {
         username: 'verified_user',
-        email: '123456@qq.com',
+        qq: '123456',
         password: 'secret123',
-        code: '000000'
+        code: '000000',
+        identity: { role: '画师', platform: '易次元', nickname: 'verified_nick' }
       }
     });
     expectStatus(wrongCodeResult, 400, 'reject wrong registration code');
@@ -148,9 +150,10 @@ async function testVerifiedEmailRegistration() {
       user: {},
       body: {
         username: 'verified_user',
-        email: '123456@qq.com',
+        qq: '123456',
         password: 'secret123',
-        code: capturedCode
+        code: capturedCode,
+        identity: { role: '画师', platform: '易次元', nickname: 'verified_nick' }
       }
     });
     expectStatus(registerResult, 201, 'register with verified email code');
@@ -164,6 +167,11 @@ async function testVerifiedEmailRegistration() {
     assert.ok(user, 'verified registration should create user');
     assert.equal(user.username, 'verified_user');
     assert.equal(user.qq, '123456', 'QQ number should be inferred from qq.com email');
+    assert.equal(user.platform, '易次元', 'primary identity platform should be mirrored to legacy platform');
+    assert.equal(user.platform_id, 'verified_nick', 'primary identity nickname should be mirrored to legacy platform id');
+    assert.equal(user.identities.length, 1, 'verified registration should store primary identity');
+    assert.equal(user.identities[0].role, '画师', 'primary identity role should be stored');
+    assert.equal(user.identities[0].status, 'pending', 'primary identity should wait for registration review');
     assert.ok(user.email_verified_at, 'created user should have verified email timestamp');
     assert.equal(user.registration_status, 'pending', 'created user should wait for review');
     assert.ok(user.uid, 'created user should have UID');
@@ -193,6 +201,7 @@ async function testVerifiedEmailRegistration() {
 
     const approvedUser = await User.findById(user._id).lean();
     assert.equal(approvedUser.registration_status, 'approved', 'approved registration should activate user');
+    assert.equal(approvedUser.identities[0].status, 'approved', 'registration approval should approve primary identity');
 
     const approvedLogin = await callController(authController.login, {
       user: {},
@@ -200,6 +209,27 @@ async function testVerifiedEmailRegistration() {
     });
     expectStatus(approvedLogin, 200, 'approved registration can login');
     assert.ok(approvedLogin.body.token, 'approved login should return auth token');
+
+    const addIdentityResult = await callController(meController.addIdentity, {
+      user: approvedUser,
+      body: { role: '文游作者', platform: '闪艺', nickname: 'verified_writer' }
+    });
+    expectStatus(addIdentityResult, 201, 'submit additional identity');
+    const identityApplication = await Application.findOne({
+      user_id: user._id,
+      type: 'identity',
+      status: 'pending'
+    }).lean();
+    assert.ok(identityApplication, 'additional identity should create a pending application');
+    const identityReviewResult = await callController(adminApplicationController.decideApplication, {
+      user: admin,
+      params: { id: objectId(identityApplication) },
+      body: { status: 'approved', remark: 'identity ok' }
+    });
+    expectStatus(identityReviewResult, 200, 'approve additional identity');
+    const userAfterIdentityReview = await User.findById(user._id).lean();
+    assert.equal(userAfterIdentityReview.identities.length, 2, 'additional identity should stay on user');
+    assert.equal(userAfterIdentityReview.identities[1].status, 'approved', 'identity approval should update identity status');
 
     const duplicateEmailResult = await callController(authController.sendRegisterCode, {
       user: {},
@@ -219,7 +249,8 @@ async function testVerifiedEmailRegistration() {
         username: 'rejected_user',
         email: '654321@qq.com',
         password: 'secret123',
-        code: capturedCode
+        code: capturedCode,
+        identity: { role: '美工', platform: '橙光', nickname: 'reject_nick' }
       }
     });
     expectStatus(rejectRegisterResult, 201, 'submit registration for rejection');

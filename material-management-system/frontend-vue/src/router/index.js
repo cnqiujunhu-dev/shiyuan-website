@@ -12,6 +12,7 @@ const routes = [
     redirect: '/my-assets',
     children: [
       { path: 'my-assets', component: () => import('@/views/MyAssets.vue') },
+      { path: 'profile', component: () => import('@/views/Profile.vue') },
       { path: 'activities', component: () => import('@/views/Activities.vue') },
       { path: 'vip', component: () => import('@/views/VipBenefits.vue') },
       { path: 'help', component: () => import('@/views/Help.vue') },

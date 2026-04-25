@@ -15,7 +15,7 @@
           <input
             v-model="filters.q"
             class="search-input"
-            placeholder="UID / 自定义ID / QQ / 邮箱"
+            placeholder="UID / 自定义ID / QQ / 邮箱 / 身份"
             style="min-width:220px"
             @keyup.enter="search"
           />
@@ -49,8 +49,7 @@
               <th>邮箱</th>
               <th>注册状态</th>
               <th>QQ</th>
-              <th>平台</th>
-              <th>平台 ID</th>
+              <th>身份</th>
               <th>VIP 等级</th>
               <th>注册时间</th>
               <th>操作</th>
@@ -63,8 +62,16 @@
               <td class="text-muted text-sm">{{ maskEmail(row.email) }}</td>
               <td><span class="status-badge" :class="registrationStatusClass(row.registration_status)">{{ registrationStatusLabel(row.registration_status) }}</span></td>
               <td class="text-muted">{{ row.qq || '-' }}</td>
-              <td>{{ row.platform || '-' }}</td>
-              <td>{{ row.platform_id || '-' }}</td>
+              <td class="text-sm">
+                <div v-if="(row.identities || []).length" class="identity-summary">
+                  <div v-for="identity in row.identities.slice(0, 2)" :key="identity.id || identity._id || identity.nickname">
+                    {{ identityLabel(identity) }}
+                    <span class="status-badge" :class="registrationStatusClass(identity.status)">{{ identityStatusLabel(identity.status) }}</span>
+                  </div>
+                  <div v-if="row.identities.length > 2" class="text-muted">等 {{ row.identities.length }} 个身份</div>
+                </div>
+                <span v-else class="text-muted">-</span>
+              </td>
               <td>
                 <span v-if="row.vip_level" class="vip-badge" :class="`vip${row.vip_level}`">
                   VIP{{ row.vip_level }}
@@ -201,6 +208,14 @@ function registrationStatusClass(status) {
   return map[status || 'approved'] || 'approved'
 }
 
+function identityStatusLabel(status) {
+  return registrationStatusLabel(status)
+}
+
+function identityLabel(identity) {
+  return [identity.role, identity.platform, identity.nickname].filter(Boolean).join(' / ') || '-'
+}
+
 // Edit Modal
 const editModal = ref({ show: false, row: null, loading: false, form: { platform: '', platform_id: '', qq: '' } })
 
@@ -229,3 +244,10 @@ async function submitEdit() {
 
 onMounted(loadData)
 </script>
+
+<style scoped>
+.identity-summary {
+  display: grid;
+  gap: 4px;
+}
+</style>

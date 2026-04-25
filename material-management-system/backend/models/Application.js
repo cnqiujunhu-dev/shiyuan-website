@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const applicationSchema = new mongoose.Schema(
   {
-    type: { type: String, enum: ['buyback', 'registration'], required: true },
+    type: { type: String, enum: ['buyback', 'registration', 'identity'], required: true },
     user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     payload: { type: mongoose.Schema.Types.Mixed },
     status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },

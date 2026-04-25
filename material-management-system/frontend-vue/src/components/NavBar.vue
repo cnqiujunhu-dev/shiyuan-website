@@ -4,6 +4,7 @@
 
     <div class="nav-links" v-if="auth.isLoggedIn">
       <RouterLink to="/my-assets" class="nav-link">我的素材</RouterLink>
+      <RouterLink to="/profile" class="nav-link">个人信息</RouterLink>
       <RouterLink to="/activities" class="nav-link">账户动态</RouterLink>
       <RouterLink to="/shop" class="nav-link">店铺素材</RouterLink>
       <RouterLink to="/vip" class="nav-link">VIP 权益</RouterLink>

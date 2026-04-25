@@ -98,6 +98,46 @@
         </div>
       </div>
 
+      <div class="table-container" style="margin-bottom:20px;">
+        <div class="table-toolbar">
+          <span class="table-title">身份信息（{{ (user.identities || []).length }} 个）</span>
+        </div>
+        <div v-if="!(user.identities || []).length" class="table-empty">暂无身份信息</div>
+        <table v-else>
+          <thead>
+            <tr>
+              <th>类型</th>
+              <th>职业</th>
+              <th>平台</th>
+              <th>圈名</th>
+              <th>状态</th>
+              <th>提交时间</th>
+              <th>审核时间</th>
+              <th>拒绝说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="identity in user.identities" :key="identity.id || identity._id || identity.nickname">
+              <td>
+                <span v-if="identity.is_primary" class="badge badge-info">主身份</span>
+                <span v-else class="badge badge-default">副身份</span>
+              </td>
+              <td>{{ identity.role || '-' }}</td>
+              <td>{{ identity.platform || '-' }}</td>
+              <td>{{ identity.nickname || '-' }}</td>
+              <td>
+                <span class="status-badge" :class="registrationStatusClass(identity.status)">
+                  {{ registrationStatusLabel(identity.status) }}
+                </span>
+              </td>
+              <td class="text-sm text-muted">{{ formatDate(identity.submitted_at) }}</td>
+              <td class="text-sm text-muted">{{ formatDate(identity.reviewed_at) }}</td>
+              <td class="text-sm text-muted">{{ identity.reject_reason || '-' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
       <!-- Ownerships Table -->
       <div class="table-container">
         <div class="table-toolbar">

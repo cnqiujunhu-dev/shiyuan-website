@@ -103,6 +103,16 @@ async function executeRegistrationReview(application, status, reviewerId, remark
   user.registration_reviewed_by = reviewerId;
   user.registration_reviewed_at = new Date();
   user.registration_reject_reason = status === 'rejected' ? remark : undefined;
+  if (Array.isArray(user.identities)) {
+    user.identities.forEach((identity) => {
+      if (identity.status === 'pending') {
+        identity.status = status === 'approved' ? 'approved' : 'rejected';
+        identity.reviewed_by = reviewerId;
+        identity.reviewed_at = user.registration_reviewed_at;
+        identity.reject_reason = status === 'rejected' ? remark : undefined;
+      }
+    });
+  }
   await user.save();
 
   if (status === 'approved') {
@@ -120,6 +130,25 @@ async function executeRegistrationReview(application, status, reviewerId, remark
   }
 }
 
+async function executeIdentityReview(application, status, reviewerId, remark = '') {
+  const user = await User.findById(application.user_id);
+  if (!user) {
+    throw new Error('身份申请关联用户不存在');
+  }
+
+  const identityId = String(application.payload?.identity_id || '');
+  const identity = user.identities.id(identityId);
+  if (!identity) {
+    throw new Error('待审核身份不存在');
+  }
+
+  identity.status = status === 'approved' ? 'approved' : 'rejected';
+  identity.reviewed_by = reviewerId;
+  identity.reviewed_at = new Date();
+  identity.reject_reason = status === 'rejected' ? remark : undefined;
+  await user.save();
+}
+
 exports.getApplications = async (req, res) => {
   const { type, status, page = 1, limit = 20 } = req.query;
   try {
@@ -133,7 +162,7 @@ exports.getApplications = async (req, res) => {
       .sort({ created_at: -1 })
       .skip((pageNum - 1) * limitNum)
       .limit(limitNum)
-      .populate('user_id', 'uid username email email_verified_at registration_status registration_reject_reason qq platform platform_id')
+      .populate('user_id', 'uid username email email_verified_at registration_status registration_reject_reason qq platform platform_id identities')
       .lean();
     return res.json({ total, page: pageNum, applications });
   } catch (err) {
@@ -161,6 +190,9 @@ exports.decideApplication = async (req, res) => {
     }
     if (application.type === 'registration') {
       await executeRegistrationReview(application, status, req.user.id, remark || '');
+    }
+    if (application.type === 'identity') {
+      await executeIdentityReview(application, status, req.user.id, remark || '');
     }
 
     application.status = status;

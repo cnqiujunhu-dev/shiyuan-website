@@ -6,6 +6,11 @@ const Application = require('../models/Application');
 const RegistrationVerification = require('../models/RegistrationVerification');
 const emailService = require('../services/emailService');
 const logger = require('../config/logger');
+const {
+  normalizeIdentity,
+  getIdentityValidationMessage,
+  serializeIdentities
+} = require('../utils/identity');
 
 const crypto = require('crypto');
 
@@ -23,6 +28,14 @@ function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
 }
 
+function normalizeQq(qq) {
+  return String(qq || '').trim();
+}
+
+function isValidQq(qq) {
+  return /^\d{5,12}$/.test(normalizeQq(qq));
+}
+
 function isQQEmail(email) {
   const domain = normalizeEmail(email).split('@')[1];
   return ['qq.com', 'vip.qq.com', 'foxmail.com'].includes(domain);
@@ -32,6 +45,25 @@ function getQqFromEmail(email) {
   const [local, domain] = normalizeEmail(email).split('@');
   if (domain === 'qq.com' && /^\d+$/.test(local)) return local;
   return undefined;
+}
+
+function getRegistrationContact(body = {}) {
+  const qq = normalizeQq(body.qq);
+  if (qq) {
+    if (!isValidQq(qq)) {
+      return { error: 'QQ 号格式不正确' };
+    }
+    return { qq, email: `${qq}@qq.com` };
+  }
+
+  const email = normalizeEmail(body.email);
+  if (!email) {
+    return { error: '请输入 QQ 号' };
+  }
+  if (!isQQEmail(email)) {
+    return { error: '请使用 QQ 邮箱注册' };
+  }
+  return { email, qq: getQqFromEmail(email) };
 }
 
 function getRegistrationStatus(user) {
@@ -73,6 +105,8 @@ function buildAuthResponse(user) {
       skip_queue_remaining: user.skip_queue_remaining,
       platform: user.platform,
       platform_id: user.platform_id,
+      qq: user.qq,
+      identities: serializeIdentities(user),
       email: user.email,
       email_verified_at: user.email_verified_at,
       registration_status: getRegistrationStatus(user)
@@ -96,11 +130,12 @@ exports.sendRegisterCode = async (req, res) => {
   if (validationMessage) {
     return res.status(400).json({ message: validationMessage });
   }
-  const email = normalizeEmail(req.body.email);
-  const username = String(req.body.username || '').trim();
-  if (!isQQEmail(email)) {
-    return res.status(400).json({ message: '请使用 QQ 邮箱注册' });
+  const contact = getRegistrationContact(req.body);
+  if (contact.error) {
+    return res.status(400).json({ message: contact.error });
   }
+  const { email } = contact;
+  const username = String(req.body.username || '').trim();
   try {
     const [emailExists, usernameExists] = await Promise.all([
       User.findOne({ email }),
@@ -156,9 +191,15 @@ exports.register = async (req, res) => {
   }
   const { password, code } = req.body;
   const username = String(req.body.username || '').trim();
-  const email = normalizeEmail(req.body.email);
-  if (!isQQEmail(email)) {
-    return res.status(400).json({ message: '请使用 QQ 邮箱注册' });
+  const contact = getRegistrationContact(req.body);
+  if (contact.error) {
+    return res.status(400).json({ message: contact.error });
+  }
+  const { email, qq } = contact;
+  const identity = normalizeIdentity(req.body.identity || req.body);
+  const identityValidationMessage = getIdentityValidationMessage(identity);
+  if (identityValidationMessage) {
+    return res.status(400).json({ message: identityValidationMessage });
   }
   try {
     const [usernameExists, emailExists] = await Promise.all([
@@ -204,8 +245,16 @@ exports.register = async (req, res) => {
       user.username = username;
       user.password_hash = password_hash;
       user.email = email;
-      user.qq = user.qq || getQqFromEmail(email);
+      user.qq = qq || user.qq || getQqFromEmail(email);
       user.email_verified_at = verifiedAt;
+      user.platform = identity.platform;
+      user.platform_id = identity.nickname;
+      user.identities = [{
+        ...identity,
+        is_primary: true,
+        status: 'pending',
+        submitted_at: verifiedAt
+      }];
       user.registration_status = 'pending';
       user.registration_reviewed_by = undefined;
       user.registration_reviewed_at = undefined;
@@ -216,7 +265,15 @@ exports.register = async (req, res) => {
         username,
         password_hash,
         email,
-        qq: getQqFromEmail(email),
+        qq: qq || getQqFromEmail(email),
+        platform: identity.platform,
+        platform_id: identity.nickname,
+        identities: [{
+          ...identity,
+          is_primary: true,
+          status: 'pending',
+          submitted_at: verifiedAt
+        }],
         email_verified_at: verifiedAt,
         registration_status: 'pending'
       });
@@ -228,7 +285,9 @@ exports.register = async (req, res) => {
       payload: {
         username: user.username,
         email: user.email,
-        uid: user.uid
+        qq: user.qq,
+        uid: user.uid,
+        identity
       }
     });
     await RegistrationVerification.deleteOne({ _id: verification._id });
@@ -240,8 +299,10 @@ exports.register = async (req, res) => {
         id: user._id,
         uid: user.uid,
         username: user.username,
+        qq: user.qq,
         email: user.email,
         email_verified_at: user.email_verified_at,
+        identities: serializeIdentities(user),
         registration_status: getRegistrationStatus(user)
       }
     });

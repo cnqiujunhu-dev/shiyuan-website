@@ -10,6 +10,25 @@ async function generateUid(UserModel, currentId) {
   throw new Error('无法生成唯一 UID');
 }
 
+const userIdentitySchema = new mongoose.Schema(
+  {
+    role: { type: String, required: true, trim: true },
+    platform: { type: String, required: true, trim: true },
+    nickname: { type: String, required: true, trim: true },
+    is_primary: { type: Boolean, default: false },
+    status: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'approved'
+    },
+    submitted_at: { type: Date, default: Date.now },
+    reviewed_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    reviewed_at: { type: Date },
+    reject_reason: { type: String }
+  },
+  { _id: true }
+);
+
 const userSchema = new mongoose.Schema(
   {
     uid: { type: String, trim: true },
@@ -22,8 +41,9 @@ const userSchema = new mongoose.Schema(
     password_reset_code: { type: String, select: false },
     password_reset_expires: { type: Date },
     qq: { type: String },
-    platform: { type: String, enum: ['易次元', '橙光', '闪艺'] },
+    platform: { type: String, trim: true },
     platform_id: { type: String },
+    identities: { type: [userIdentitySchema], default: [] },
     roles: { type: [String], default: ['user'] },
     vip_level: { type: Number, default: 0 },
     points_total: { type: Number, default: 0 },
@@ -60,6 +80,7 @@ userSchema.pre('validate', async function assignUid(next) {
 userSchema.index({ uid: 1 }, { unique: true, sparse: true });
 userSchema.index({ qq: 1 }, { sparse: true });
 userSchema.index({ platform: 1, platform_id: 1 }, { sparse: true });
+userSchema.index({ 'identities.platform': 1, 'identities.nickname': 1 });
 userSchema.index({ vip_level: 1 });
 userSchema.index({ registration_status: 1, created_at: -1 });
 

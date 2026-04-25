@@ -2,10 +2,11 @@ const User = require('../../models/User');
 const auditService = require('../../services/auditService');
 const logger = require('../../config/logger');
 const { normalizeItem } = require('../../utils/publicUrl');
+const { serializeIdentities } = require('../../utils/identity');
 
 function serializeUser(userDoc) {
   const user = userDoc.toObject ? userDoc.toObject() : userDoc;
-  return { ...user, id: String(user._id) };
+  return { ...user, id: String(user._id), identities: serializeIdentities(user) };
 }
 
 exports.getUsers = async (req, res) => {
@@ -16,7 +17,16 @@ exports.getUsers = async (req, res) => {
     const filter = {};
     if (q) {
       const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-      filter.$or = [{ uid: re }, { username: re }, { qq: re }, { platform_id: re }, { email: re }];
+      filter.$or = [
+        { uid: re },
+        { username: re },
+        { qq: re },
+        { platform_id: re },
+        { email: re },
+        { 'identities.role': re },
+        { 'identities.platform': re },
+        { 'identities.nickname': re }
+      ];
     }
     if (registration_status) {
       filter.registration_status = registration_status;

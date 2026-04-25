@@ -3,7 +3,7 @@
     <div class="page-header">
       <div>
         <div class="page-title">审核中心</div>
-        <div class="page-subtitle">处理注册审核与素材回购申请</div>
+        <div class="page-subtitle">处理注册、身份与素材回购申请</div>
       </div>
     </div>
 
@@ -14,6 +14,7 @@
           <select v-model="filters.type" class="search-input" @change="search">
             <option value="">全部</option>
             <option value="registration">注册审核</option>
+            <option value="identity">身份审核</option>
             <option value="buyback">素材回购</option>
           </select>
         </div>
@@ -93,7 +94,14 @@
             <template v-if="decideModal.row?.type === 'registration'">
               <p>自定义 ID：{{ decideModal.row?.user_id?.username || decideModal.row?.payload?.username || '-' }}</p>
               <p>平台 UID：{{ decideModal.row?.user_id?.uid || decideModal.row?.payload?.uid || '-' }}</p>
+              <p>主 QQ：{{ decideModal.row?.user_id?.qq || decideModal.row?.payload?.qq || '-' }}</p>
               <p>QQ 邮箱：{{ decideModal.row?.user_id?.email || decideModal.row?.payload?.email || '-' }}</p>
+              <p>主身份：{{ identityText(decideModal.row?.payload?.identity) }}</p>
+            </template>
+            <template v-else-if="decideModal.row?.type === 'identity'">
+              <p>用户：{{ decideModal.row?.user_id?.username || '-' }}</p>
+              <p>QQ：{{ decideModal.row?.user_id?.qq || '-' }}</p>
+              <p>新增身份：{{ identityText(decideModal.row?.payload?.identity) }}</p>
             </template>
             <template v-else>
               <p>用户：{{ decideModal.row?.user_id?.username || '-' }}</p>
@@ -203,7 +211,7 @@ function formatDate(d) {
 }
 
 function typeLabel(type) {
-  const map = { registration: '注册审核', buyback: '素材回购' }
+  const map = { registration: '注册审核', identity: '身份审核', buyback: '素材回购' }
   return map[type] || type || '-'
 }
 
@@ -218,7 +226,10 @@ function applicantName(row) {
 
 function applicantMeta(row) {
   if (row.type === 'registration') {
-    return row.user_id?.email || row.payload?.email || '-'
+    return row.user_id?.qq || row.payload?.qq || row.user_id?.email || row.payload?.email || '-'
+  }
+  if (row.type === 'identity') {
+    return row.user_id?.qq || row.user_id?.email || '-'
   }
   return row.user_id?.qq || row.user_id?.platform_id || row.user_id?.email || '-'
 }
@@ -227,12 +238,21 @@ function applicationTitle(row) {
   if (row.type === 'registration') {
     return `UID：${row.user_id?.uid || row.payload?.uid || '-'}`
   }
+  if (row.type === 'identity') {
+    return `新增身份：${row.payload?.identity?.nickname || '-'}`
+  }
   return row.payload?.item_name || '-'
 }
 
 function applicationSubTitle(row) {
-  if (row.type === 'registration') return 'QQ 邮箱已验证，等待管理员审核'
+  if (row.type === 'registration') return identityText(row.payload?.identity)
+  if (row.type === 'identity') return identityText(row.payload?.identity)
   return row.payload?.reason || ''
+}
+
+function identityText(identity) {
+  if (!identity) return '-'
+  return [identity.role, identity.platform, identity.nickname].filter(Boolean).join(' / ') || '-'
 }
 
 const decideModal = ref({
