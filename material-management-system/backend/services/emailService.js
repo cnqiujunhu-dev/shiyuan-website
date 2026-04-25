@@ -6,12 +6,17 @@ const isMailConfigured = () =>
 
 const getMailTimeout = () => parseInt(process.env.MAIL_TIMEOUT_MS, 10) || 10000;
 
+const getMailDnsFamily = () => {
+  const family = parseInt(process.env.MAIL_DNS_FAMILY, 10);
+  return family === 4 || family === 6 ? family : undefined;
+};
+
 let transporter = null;
 
 function getTransporter() {
   if (transporter) return transporter;
   if (!isMailConfigured()) return null;
-  transporter = nodemailer.createTransport({
+  const mailOptions = {
     host: process.env.MAIL_HOST,
     port: parseInt(process.env.MAIL_PORT) || 465,
     secure: process.env.MAIL_SECURE === 'true',
@@ -21,8 +26,14 @@ function getTransporter() {
     },
     connectionTimeout: getMailTimeout(),
     greetingTimeout: getMailTimeout(),
-    socketTimeout: getMailTimeout()
-  });
+    socketTimeout: getMailTimeout(),
+    dnsTimeout: getMailTimeout()
+  };
+  const family = getMailDnsFamily();
+  if (family) {
+    mailOptions.family = family;
+  }
+  transporter = nodemailer.createTransport(mailOptions);
   return transporter;
 }
 

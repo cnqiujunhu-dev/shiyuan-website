@@ -62,6 +62,17 @@ function buildAuthResponse(user) {
   };
 }
 
+function getMailErrorMessage(err) {
+  const message = err?.message || '';
+  if (/timeout|ETIMEDOUT/i.test(message)) {
+    return '邮件服务连接超时，请联系管理员检查 SMTP 配置';
+  }
+  if (/auth|EAUTH|Invalid login|Authentication/i.test(message)) {
+    return '邮件服务认证失败，请联系管理员检查 SMTP 账号或授权码';
+  }
+  return '邮件发送失败，请稍后重试';
+}
+
 exports.sendRegisterCode = async (req, res) => {
   const validationMessage = getValidationMessage(req);
   if (validationMessage) {
@@ -104,7 +115,7 @@ exports.sendRegisterCode = async (req, res) => {
     } catch (mailErr) {
       await RegistrationVerification.deleteOne({ email });
       logger.error('Registration email send failed', { message: mailErr.message });
-      return res.status(500).json({ message: mailErr.message || '邮件发送失败，请稍后重试' });
+      return res.status(500).json({ message: getMailErrorMessage(mailErr) });
     }
 
     return res.json({ message: '验证码已发送，请查收邮箱', expiresIn: 600, resendAfter: 60 });
@@ -231,7 +242,8 @@ exports.sendVerifyEmail = async (req, res) => {
     try {
       await emailService.sendVerifyEmail(user.email, code);
     } catch (mailErr) {
-      return res.status(500).json({ message: mailErr.message || '邮件发送失败' });
+      logger.error('Verify email send failed', { message: mailErr.message });
+      return res.status(500).json({ message: getMailErrorMessage(mailErr) });
     }
     return res.json({ message: '验证码已发送至 ' + user.email });
   } catch (err) {
@@ -284,7 +296,12 @@ exports.forgotPassword = async (req, res) => {
       user.password_reset_code = code;
       user.password_reset_expires = new Date(Date.now() + 10 * 60 * 1000);
       await user.save();
-      await emailService.sendPasswordResetEmail(user.email, code);
+      try {
+        await emailService.sendPasswordResetEmail(user.email, code);
+      } catch (mailErr) {
+        logger.error('Password reset email send failed', { message: mailErr.message });
+        return res.status(500).json({ message: getMailErrorMessage(mailErr) });
+      }
     }
     return res.json({ message: '若该邮箱已注册且已验证，重置码已发送' });
   } catch (err) {
