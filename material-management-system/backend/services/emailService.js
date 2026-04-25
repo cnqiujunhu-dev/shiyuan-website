@@ -4,6 +4,8 @@ const logger = require('../config/logger');
 const isMailConfigured = () =>
   process.env.MAIL_HOST && process.env.MAIL_USER && process.env.MAIL_PASS;
 
+const getMailTimeout = () => parseInt(process.env.MAIL_TIMEOUT_MS, 10) || 10000;
+
 let transporter = null;
 
 function getTransporter() {
@@ -16,7 +18,10 @@ function getTransporter() {
     auth: {
       user: process.env.MAIL_USER,
       pass: process.env.MAIL_PASS
-    }
+    },
+    connectionTimeout: getMailTimeout(),
+    greetingTimeout: getMailTimeout(),
+    socketTimeout: getMailTimeout()
   });
   return transporter;
 }
