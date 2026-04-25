@@ -40,7 +40,18 @@ exports.uploadMiddleware = (req, res, next) => {
 
 exports.createItem = async (req, res) => {
   try {
-    const { sku_code, name, artist, categories, topics, price, delivery_link, status } = req.body;
+    const {
+      sku_code,
+      name,
+      artist,
+      categories,
+      topics,
+      price,
+      delivery_link,
+      status,
+      priority_only,
+      queue_enabled
+    } = req.body;
     const preview_url = req.file ? req.file.path.replace(/\\/g, '/') : (req.body.preview_url || undefined);
 
     const parsedTopics = topics ? (Array.isArray(topics) ? topics : JSON.parse(topics)) : [];
@@ -55,7 +66,9 @@ exports.createItem = async (req, res) => {
       price: Number(price),
       preview_url,
       delivery_link,
-      status: status || 'on_sale'
+      status: status || 'on_sale',
+      priority_only: String(priority_only) === 'true' || priority_only === true,
+      queue_enabled: String(queue_enabled) === 'true' || queue_enabled === true
     });
     logger.info('Item created', { itemId: item._id, name });
     return res.status(201).json({ message: '商品创建成功', item });
@@ -68,7 +81,18 @@ exports.createItem = async (req, res) => {
 exports.updateItem = async (req, res) => {
   const { id } = req.params;
   try {
-    const { sku_code, name, artist, categories, topics, price, delivery_link, status } = req.body;
+    const {
+      sku_code,
+      name,
+      artist,
+      categories,
+      topics,
+      price,
+      delivery_link,
+      status,
+      priority_only,
+      queue_enabled
+    } = req.body;
     const updates = {};
     if (sku_code !== undefined) updates.sku_code = sku_code;
     if (name !== undefined) updates.name = name;
@@ -78,6 +102,8 @@ exports.updateItem = async (req, res) => {
     if (price !== undefined) updates.price = Number(price);
     if (delivery_link !== undefined) updates.delivery_link = delivery_link;
     if (status !== undefined) updates.status = status;
+    if (priority_only !== undefined) updates.priority_only = String(priority_only) === 'true' || priority_only === true;
+    if (queue_enabled !== undefined) updates.queue_enabled = String(queue_enabled) === 'true' || queue_enabled === true;
     if (req.file) updates.preview_url = req.file.path.replace(/\\/g, '/');
     if (req.body.preview_url !== undefined && !req.file) updates.preview_url = req.body.preview_url;
 
@@ -149,7 +175,9 @@ exports.importItems = async (req, res) => {
           price: Number(row.price),
           preview_url: row.preview_url || undefined,
           delivery_link: row.delivery_link || '',
-          status: row.status || 'on_sale'
+          status: row.status || 'on_sale',
+          priority_only: !!row.priority_only,
+          queue_enabled: !!row.queue_enabled
         });
         results.success++;
       } catch (err) {

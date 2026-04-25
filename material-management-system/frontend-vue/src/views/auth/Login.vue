@@ -70,7 +70,7 @@ async function handleLogin() {
       error.value = result.message || '登录失败，请检查用户名和密码'
     }
   } catch (e) {
-    error.value = '网络错误，请稍后重试'
+    error.value = e?.message || '登录失败，请稍后重试'
   } finally {
     loading.value = false
   }

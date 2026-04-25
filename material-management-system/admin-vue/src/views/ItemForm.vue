@@ -91,6 +91,26 @@
       </div>
 
       <div class="form-section">
+        <div class="form-section-title">销售规则</div>
+        <div class="form-grid">
+          <div class="form-group" style="grid-column:1/-1;">
+            <label class="checkbox-item">
+              <input type="checkbox" v-model="form.priority_only" />
+              设为 VIP 优先购商品
+            </label>
+            <div class="form-hint">开启后，非 VIP 用户无法购买该商品。</div>
+          </div>
+          <div class="form-group" style="grid-column:1/-1;">
+            <label class="checkbox-item">
+              <input type="checkbox" v-model="form.queue_enabled" />
+              开启排队限购 / 插队购买
+            </label>
+            <div class="form-hint">开启后，普通购买入口关闭，仅允许符合条件的 VIP 用户使用插队购买。</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
         <div class="form-section-title">素材链接</div>
         <div class="form-grid">
           <div class="form-group" style="grid-column:1/-1;">
@@ -166,6 +186,8 @@ const form = ref({
   artist: '',
   price: '',
   status: 'on_sale',
+  priority_only: false,
+  queue_enabled: false,
   topics: [],
   categories: [],
   preview_url: '',
@@ -234,6 +256,8 @@ async function loadItem() {
       artist: item.artist || '',
       price: item.price ?? '',
       status: item.status || 'on_sale',
+      priority_only: !!item.priority_only,
+      queue_enabled: !!item.queue_enabled,
       topics: item.topics || [],
       categories: item.categories || [],
       preview_url: item.preview_url || '',
@@ -260,6 +284,8 @@ async function handleSubmit() {
     fd.append('artist', form.value.artist)
     fd.append('price', String(Number(form.value.price)))
     fd.append('status', form.value.status)
+    fd.append('priority_only', String(!!form.value.priority_only))
+    fd.append('queue_enabled', String(!!form.value.queue_enabled))
     fd.append('topics', JSON.stringify(form.value.topics))
     fd.append('categories', JSON.stringify(form.value.categories))
     fd.append('delivery_link', form.value.delivery_link)

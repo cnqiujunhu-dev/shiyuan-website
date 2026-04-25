@@ -168,8 +168,8 @@
           <button class="modal-close" @click="showAnnualModal = false">✕</button>
         </div>
         <div class="modal-body">
-          <p class="warning-text" style="margin-bottom:12px;">此操作将重新计算所有用户VIP等级，并清零年度消费数据，执行后无法撤销！</p>
-          <p class="confirm-text">通常在每年年初执行。确认要重置年度消费并重新计算 VIP 等级吗？</p>
+          <p class="warning-text" style="margin-bottom:12px;">此操作将清零年度消费数据，执行后无法撤销！</p>
+          <p class="confirm-text">通常在每年年初执行。需要降级的顾客请在年度消费清零后手动编辑 VIP 等级。</p>
         </div>
         <div class="modal-footer">
           <button class="btn btn-secondary" @click="showAnnualModal = false">取消</button>
@@ -285,7 +285,7 @@ async function handleResetAnnual() {
   annualLoading.value = true
   try {
     await vipsAPI.resetAnnualSpend()
-    addToast('年度消费已重置，VIP 等级已重新计算', 'success')
+    addToast('年度消费已清零', 'success')
     showAnnualModal.value = false
     fetchData()
   } catch (e) {

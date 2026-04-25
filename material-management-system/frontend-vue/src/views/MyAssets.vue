@@ -252,7 +252,7 @@ async function submitTransfer() {
       transferError.value = res.message || res.error || '转让失败'
     }
   } catch (e) {
-    transferError.value = '网络错误，请稍后重试'
+    transferError.value = e?.message || '转让失败，请稍后重试'
   } finally {
     transferLoading.value = false
   }
@@ -291,7 +291,7 @@ async function submitRegister() {
       registerError.value = res.message || res.error || '登记失败'
     }
   } catch (e) {
-    registerError.value = '网络错误，请稍后重试'
+    registerError.value = e?.message || '登记失败，请稍后重试'
   } finally {
     registerLoading.value = false
   }

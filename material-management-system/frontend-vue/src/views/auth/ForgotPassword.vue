@@ -95,7 +95,7 @@ async function handleSendCode() {
       errorMsg.value = res.message || res.error || '发送失败，请检查邮箱是否正确'
     }
   } catch (e) {
-    errorMsg.value = '网络错误，请稍后重试'
+    errorMsg.value = e?.message || '发送失败，请稍后重试'
   } finally {
     loading.value = false
   }
@@ -112,7 +112,7 @@ async function handleReset() {
     const res = await authAPI.resetPassword({
       email: email.value,
       code: code.value,
-      newPassword: newPassword.value
+      new_password: newPassword.value
     })
     if (res.message && !res.error) {
       successMsg.value = '密码重置成功！3 秒后跳转到登录页...'
@@ -121,7 +121,7 @@ async function handleReset() {
       errorMsg.value = res.message || res.error || '重置失败，请检查验证码是否正确'
     }
   } catch (e) {
-    errorMsg.value = '网络错误，请稍后重试'
+    errorMsg.value = e?.message || '重置失败，请稍后重试'
   } finally {
     loading.value = false
   }

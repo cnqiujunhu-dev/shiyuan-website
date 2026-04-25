@@ -179,8 +179,8 @@ async function doImport() {
       importResult.value += '；失败项：' + res.errors.map(e => `${e.name}(${e.error})`).join('、')
     }
     fetchItems()
-  } catch {
-    importError.value = '导入请求失败'
+  } catch (e) {
+    importError.value = e?.message || '导入请求失败'
   } finally {
     importing.value = false
   }
@@ -236,8 +236,8 @@ async function toggleStatus(item) {
     await itemsAPI.update(item._id, { status: newStatus })
     item.status = newStatus
     addToast(`已${statusLabel(newStatus)}：${item.name}`, 'success')
-  } catch {
-    addToast('操作失败，请重试', 'error')
+  } catch (e) {
+    addToast(e?.message || '操作失败，请重试', 'error')
   } finally {
     delete toggling[item._id]
   }

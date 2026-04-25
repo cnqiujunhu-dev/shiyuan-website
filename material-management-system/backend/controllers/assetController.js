@@ -92,26 +92,53 @@ exports.transferAsset = async (req, res) => {
     if (!targetUser) {
       return res.status(404).json({ message: '接转方用户未注册，请让对方先注册账号' });
     }
+    if (String(targetUser._id) === String(actor._id)) {
+      return res.status(400).json({ message: '不能转让给自己' });
+    }
+    const existingOwnership = await Ownership.findOne({
+      user_id: targetUser._id,
+      item_id: item._id,
+      active: true
+    });
+    if (existingOwnership) {
+      return res.status(400).json({ message: '接转方已拥有该素材' });
+    }
 
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
       const now = new Date();
 
-      // Deactivate original ownership (disappears from A)
+      // Deactivate the original self ownership while keeping it for rollback recovery.
       await Ownership.findByIdAndUpdate(ownership._id, { active: false }, { session });
 
-      // Create new "self" ownership for B (获取类型仍为自用)
-      await Ownership.create([{
-        user_id: targetUser._id,
-        item_id: item._id,
-        acquisition_type: 'self',
-        points_delta: 0,
-        occurred_at: now,
-        delivery_link: ownership.delivery_link || item.delivery_link,
-        source_user_id: actor._id,
-        active: true
-      }], { session });
+      const [transferOutOwnership, transferInOwnership] = await Ownership.create([
+        {
+          user_id: actor._id,
+          item_id: item._id,
+          acquisition_type: 'transfer_out',
+          points_delta: 0,
+          occurred_at: now,
+          target_user_id: targetUser._id,
+          active: true
+        },
+        {
+          user_id: targetUser._id,
+          item_id: item._id,
+          acquisition_type: 'transfer_in',
+          points_delta: 0,
+          occurred_at: now,
+          delivery_link: ownership.delivery_link || item.delivery_link,
+          source_user_id: actor._id,
+          active: true
+        }
+      ], { session });
+
+      await Ownership.findByIdAndUpdate(
+        transferOutOwnership._id,
+        { replaced_by: transferInOwnership._id },
+        { session }
+      );
 
       await Transaction.create([
         {
@@ -329,6 +356,14 @@ exports.registerSponsor = async (req, res) => {
     }
 
     const item = ownership.item_id;
+    const existingOwnership = await Ownership.findOne({
+      user_id: targetUser._id,
+      item_id: item._id,
+      active: true
+    });
+    if (existingOwnership) {
+      return res.status(400).json({ message: '被赞助方已拥有该素材' });
+    }
     const now = new Date();
     const session = await mongoose.startSession();
     session.startTransaction();

@@ -13,14 +13,17 @@ export const useAuthStore = defineStore('auth', {
     vipLevel: (s) => s.user?.vip_level || 0,
   },
   actions: {
+    setSession(res) {
+      this.token = res.token
+      this.user = res.user
+      localStorage.setItem('token', res.token)
+      localStorage.setItem('user', JSON.stringify(res.user))
+      if (res.refreshToken) localStorage.setItem('refreshToken', res.refreshToken)
+    },
     async login(username, password) {
       const res = await authAPI.login({ username, password })
       if (res.token) {
-        this.token = res.token
-        this.user = res.user
-        localStorage.setItem('token', res.token)
-        localStorage.setItem('user', JSON.stringify(res.user))
-        if (res.refreshToken) localStorage.setItem('refreshToken', res.refreshToken)
+        this.setSession(res)
         return { ok: true }
       }
       return { ok: false, message: res.message }
