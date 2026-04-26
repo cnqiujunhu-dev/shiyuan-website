@@ -57,11 +57,16 @@ API：
 流程：
 
 1. 用户输入 QQ。
-2. `sendLoginCode` 查找 `User.qq`。
+2. `sendLoginCode` 优先查找 `User.qq`，找不到时用 `{qq}@qq.com` 兼容历史邮箱账号。
 3. pending 或 rejected 用户不能发送登录验证码。
 4. 生成验证码，写入 `RegistrationVerification`，发送到 `{qq}@qq.com`。
 5. `loginWithCode` 校验验证码并删除验证码记录。
 6. 登录成功返回 `token`、`refreshToken` 和用户信息。
+
+历史兼容：
+
+- 老账号可能只有 `email = {qq}@qq.com`，但没有 `qq`，且 `email_verified_at` 为空。
+- QQ 验证码登录成功后，后端会回填 `qq`，并在邮箱等于本次 QQ 邮箱时标记 `email_verified_at`。
 
 前台 `frontend-vue/src/stores/auth.js` 的 `login(qq, code)` 调用 `authAPI.loginWithCode`。
 

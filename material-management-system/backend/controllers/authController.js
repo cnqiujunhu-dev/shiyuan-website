@@ -229,6 +229,37 @@ function getMailErrorMessage(err) {
   return '邮件发送失败，请稍后重试';
 }
 
+async function findUserByQqContact(contact) {
+  const qqUser = await User.findOne({ qq: contact.qq });
+  if (qqUser) return qqUser;
+  return User.findOne({ email: contact.email });
+}
+
+async function backfillQqLoginContact(user, contact) {
+  let changed = false;
+  const userEmail = normalizeEmail(user.email);
+
+  if (!user.qq) {
+    user.qq = contact.qq;
+    changed = true;
+  }
+  if (!user.email) {
+    const emailOwner = await User.exists({ email: contact.email, _id: { $ne: user._id } });
+    if (!emailOwner) {
+      user.email = contact.email;
+      user.email_verified_at = new Date();
+      changed = true;
+    }
+  } else if (userEmail === contact.email && !user.email_verified_at) {
+    user.email_verified_at = new Date();
+    changed = true;
+  }
+
+  if (changed) {
+    await user.save();
+  }
+}
+
 exports.sendRegisterCode = async (req, res) => {
   const validationMessage = getValidationMessage(req);
   if (validationMessage) {
@@ -240,7 +271,7 @@ exports.sendRegisterCode = async (req, res) => {
   }
   const { email } = contact;
   try {
-    const emailExists = await User.findOne({ email });
+    const emailExists = await findUserByQqContact(contact);
     if (emailExists && getRegistrationStatus(emailExists) !== 'rejected') {
       const message = getRegistrationStatus(emailExists) === 'pending'
         ? '该 QQ 的注册申请正在审核中'
@@ -322,7 +353,7 @@ exports.register = async (req, res) => {
     }
   }
   try {
-    const emailExists = await User.findOne({ email });
+    const emailExists = await findUserByQqContact(contact);
     if (emailExists && getRegistrationStatus(emailExists) !== 'rejected') {
       const message = getRegistrationStatus(emailExists) === 'pending'
         ? '该 QQ 的注册申请正在审核中'
@@ -468,7 +499,7 @@ exports.sendLoginCode = async (req, res) => {
     return res.status(400).json({ message: contact.error });
   }
   try {
-    const user = await User.findOne({ qq: contact.qq });
+    const user = await findUserByQqContact(contact);
     if (!user) {
       return res.status(404).json({ message: '未找到该 QQ 对应的账号，请先注册' });
     }
@@ -512,7 +543,7 @@ exports.loginWithCode = async (req, res) => {
       return res.status(400).json({ message: verification.error });
     }
 
-    const user = await User.findOne({ qq: contact.qq });
+    const user = await findUserByQqContact(contact);
     if (!user) {
       return res.status(404).json({ message: '未找到该 QQ 对应的账号，请先注册' });
     }
@@ -524,6 +555,7 @@ exports.loginWithCode = async (req, res) => {
       const reason = user.registration_reject_reason ? `：${user.registration_reject_reason}` : '';
       return res.status(403).json({ message: `注册审核未通过${reason}` });
     }
+    await backfillQqLoginContact(user, contact);
     logger.info('User logged in with QQ code', { userId: user._id, qq: contact.qq });
     return res.status(200).json(buildAuthResponse(user));
   } catch (err) {

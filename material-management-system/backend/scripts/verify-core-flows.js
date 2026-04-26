@@ -246,6 +246,44 @@ async function testQqVerificationRegistration() {
     expectStatus(approvedLogin, 200, 'approved registration can login');
     assert.ok(approvedLogin.body.token, 'approved login should return auth token');
 
+    const legacyEmailOnlyUser = await createUser({
+      username: 'legacy_email_only',
+      email: '2715763038@qq.com',
+      email_verified_at: null,
+      registration_status: 'approved',
+      platform: '易次元',
+      platform_id: 'legacy_nick'
+    });
+    assert.ok(!legacyEmailOnlyUser.qq, 'legacy email-only user should start without QQ field');
+
+    const legacyRegisterResult = await callController(authController.sendRegisterCode, {
+      user: {},
+      body: { qq: '2715763038' }
+    });
+    expectStatus(legacyRegisterResult, 409, 'legacy QQ email account should not be re-registered');
+
+    capturedLoginCode = null;
+    const legacySendLoginResult = await callController(authController.sendLoginCode, {
+      user: {},
+      body: { qq: '2715763038' }
+    });
+    expectStatus(legacySendLoginResult, 200, 'legacy QQ email account can request login code');
+    assert.equal(capturedEmail, '2715763038@qq.com', 'legacy login code should use QQ email');
+    assert.match(capturedLoginCode, /^\d{6}$/, 'legacy login code should be six digits');
+
+    const legacyLoginResult = await callController(authController.loginWithCode, {
+      user: {},
+      body: { qq: '2715763038', code: capturedLoginCode }
+    });
+    expectStatus(legacyLoginResult, 200, 'legacy QQ email account can login with code');
+    assert.ok(legacyLoginResult.body.token, 'legacy login should return auth token');
+    assert.equal(legacyLoginResult.body.user.qq, '2715763038', 'legacy login should return backfilled QQ');
+    assert.ok(legacyLoginResult.body.user.email_verified_at, 'legacy login should mark QQ email verified');
+
+    const legacyAfterLogin = await User.findById(legacyEmailOnlyUser._id).lean();
+    assert.equal(legacyAfterLogin.qq, '2715763038', 'legacy login should persist QQ backfill');
+    assert.ok(legacyAfterLogin.email_verified_at, 'legacy login should persist QQ email verification');
+
     const addIdentityResult = await callController(meController.addIdentity, {
       user: approvedUser,
       body: { role: '文游作者', platform: '闪艺', nickname: 'verified_writer_uid', uid: 'WY-VERIFY-001' }
