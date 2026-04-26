@@ -41,7 +41,7 @@
           </div>
           <div class="identity-form">
             <select v-model="form.role" class="form-input" :class="{ error: errors.role }">
-              <option value="">职业</option>
+              <option value="">身份</option>
               <option v-for="role in roleOptions" :key="role" :value="role">{{ role }}</option>
             </select>
             <select v-model="form.platform" class="form-input" :class="{ error: errors.platform }">
@@ -52,7 +52,15 @@
               v-model="form.nickname"
               class="form-input"
               :class="{ error: errors.nickname }"
-              placeholder="圈名"
+              placeholder="圈名 ID"
+              maxlength="50"
+            />
+            <input
+              v-if="form.role === '文游作者'"
+              v-model="form.uid"
+              class="form-input"
+              :class="{ error: errors.uid }"
+              placeholder="文游作者 UID"
               maxlength="50"
             />
           </div>
@@ -82,6 +90,7 @@
             <div class="identity-meta">
               <span>{{ identity.role || '-' }}</span>
               <span>{{ identity.platform || '-' }}</span>
+              <span v-if="identity.uid">UID：{{ identity.uid }}</span>
             </div>
             <div v-if="identity.reject_reason" class="identity-reason">
               拒绝说明：{{ identity.reject_reason }}
@@ -122,27 +131,28 @@ import { useAuthStore } from '@/stores/auth.js'
 import { useUserStore } from '@/stores/user.js'
 import { meAPI } from '@/api/index.js'
 
-const roleOptions = ['美工', '画师', '文游作者', '小说作者', '美化']
-const platformOptions = ['全平台', '橙光', '易次元', '闪艺', '番茄', '晋江', '小红书', '微博', '快手', '抖音', '米画师', '画加']
+const roleOptions = ['文游作者', '美工美化', '小说作者']
+const platformOptions = ['全平台', '橙光', '易次元', '闪艺', '晋江', '番茄', '微博', '小红书', '抖音', '快手']
 
 const auth = useAuthStore()
 const userStore = useUserStore()
 const addToast = inject('addToast')
 
-const form = reactive({ role: '', platform: '', nickname: '' })
-const errors = reactive({ role: '', platform: '', nickname: '' })
+const form = reactive({ role: '', platform: '', nickname: '', uid: '' })
+const errors = reactive({ role: '', platform: '', nickname: '', uid: '' })
 const loading = ref(false)
 const submitLoading = ref(false)
 const confirmModal = ref(false)
 
 const summary = computed(() => userStore.summary)
 const identities = computed(() => summary.value?.identities || auth.user?.identities || [])
-const formError = computed(() => errors.role || errors.platform || errors.nickname)
+const formError = computed(() => errors.role || errors.platform || errors.nickname || errors.uid)
 
 function clearErrors() {
   errors.role = ''
   errors.platform = ''
   errors.nickname = ''
+  errors.uid = ''
 }
 
 function validateIdentity() {
@@ -158,10 +168,17 @@ function validateIdentity() {
     valid = false
   }
   if (!nickname) {
-    errors.nickname = '请输入圈名'
+    errors.nickname = '请输入圈名 ID'
     valid = false
   } else if (/[<>\r\n\t]/.test(nickname)) {
-    errors.nickname = '圈名不能包含换行或尖括号'
+    errors.nickname = '圈名 ID 不能包含换行或尖括号'
+    valid = false
+  }
+  if (form.role === '文游作者' && !form.uid.trim()) {
+    errors.uid = '请填写文游作者 UID'
+    valid = false
+  } else if (/[<>\r\n\t]/.test(form.uid)) {
+    errors.uid = 'UID 不能包含换行或尖括号'
     valid = false
   }
   return valid
@@ -176,6 +193,7 @@ function resetForm() {
   form.role = ''
   form.platform = ''
   form.nickname = ''
+  form.uid = ''
   clearErrors()
 }
 
@@ -186,7 +204,8 @@ async function submitIdentity() {
     const res = await meAPI.addIdentity({
       role: form.role,
       platform: form.platform,
-      nickname: form.nickname.trim()
+      nickname: form.nickname.trim(),
+      uid: form.role === '文游作者' ? form.uid.trim() : ''
     })
     if (userStore.summary) {
       userStore.summary = { ...userStore.summary, identities: res.identities || [] }

@@ -55,6 +55,7 @@ app.use('/api/me', require('./routes/me'));
 app.use('/api/assets', require('./routes/assets'));
 app.use('/api/applications', require('./routes/applications'));
 app.use('/api/shop', require('./routes/shop'));
+app.use('/api/admin/auth', require('./routes/admin/auth'));
 app.use('/api/admin/items', require('./routes/admin/items'));
 app.use('/api/admin/transactions', require('./routes/admin/transactions'));
 app.use('/api/admin/vips', require('./routes/admin/vips'));

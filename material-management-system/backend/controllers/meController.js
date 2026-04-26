@@ -72,6 +72,7 @@ exports.addIdentity = async (req, res) => {
       return item.role === identity.role
         && item.platform === identity.platform
         && item.nickname === identity.nickname
+        && String(item.uid || '') === String(identity.uid || '')
         && item.status !== 'rejected';
     });
     if (duplicate) {

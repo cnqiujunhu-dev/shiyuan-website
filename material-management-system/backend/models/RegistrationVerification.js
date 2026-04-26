@@ -6,6 +6,7 @@ const registrationVerificationSchema = new mongoose.Schema(
     code_hash: { type: String, required: true, select: false },
     expires_at: { type: Date, required: true },
     attempts: { type: Number, default: 0 },
+    verified_at: { type: Date },
     last_sent_at: { type: Date, required: true }
   },
   {

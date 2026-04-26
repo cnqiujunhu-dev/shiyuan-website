@@ -83,11 +83,14 @@
           <li><code>acquisition_type_1</code> — 用户1获取类型：自用 / 已赞助 / 赞助待定（必填）</li>
           <li><code>id1</code> — 用户1 ID（与 qq1 至少填一项）</li>
           <li><code>qq1</code> — 用户1 QQ</li>
+          <li><code>domain1</code> / <code>领域1</code> — 用户1领域：文游作者 / 美工美化 / 小说作者</li>
+          <li><code>circle_id1</code> / <code>圈名ID1</code> — 用户1圈名 ID；领域为文游作者时需提供 <code>uid1</code></li>
           <li><code>points1</code> — 用户1积分</li>
           <li><code>delivery_link_1</code> — 用户1发货链接</li>
           <li><code>acquisition_type_2</code> — 用户2获取类型：被赞助（选填）</li>
           <li><code>id2</code> — 用户2 ID</li>
           <li><code>qq2</code> — 用户2 QQ</li>
+          <li><code>domain2</code> / <code>领域2</code>、<code>circle_id2</code> / <code>圈名ID2</code> — 用户2身份信息</li>
           <li><code>points2</code> — 用户2积分</li>
           <li><code>delivery_link_2</code> — 用户2发货链接</li>
         </ul>
@@ -166,20 +169,24 @@ const authExampleJSON = `[
     "sku_code": "251202",
     "name": "佛本无相",
     "acquisition_type_1": "自用",
-    "id1": "2673",
-    "qq1": "",
+    "domain1": "文游作者",
+    "circle_id1": "2673",
+    "uid1": "WY-2673",
+    "qq1": "123456789",
     "points1": 39,
     "delivery_link_1": "https://pan.example.com/xxx"
   },
   {
     "name": "夜渡海",
     "acquisition_type_1": "已赞助",
-    "id1": "267347538",
-    "qq1": "",
+    "domain1": "美工美化",
+    "circle_id1": "画师A",
+    "qq1": "234567890",
     "points1": 39,
     "delivery_link_1": "",
     "acquisition_type_2": "被赞助",
-    "id2": "",
+    "domain2": "小说作者",
+    "circle_id2": "作者B",
     "qq2": "123456789",
     "points2": 0,
     "delivery_link_2": "https://pan.example.com/yyy"
@@ -187,12 +194,62 @@ const authExampleJSON = `[
   {
     "name": "佛本无相",
     "acquisition_type_1": "赞助待定",
-    "id1": "267347538",
-    "qq1": "",
+    "domain1": "美工美化",
+    "circle_id1": "画师C",
+    "qq1": "345678901",
     "points1": 39,
     "delivery_link_1": ""
   }
 ]`
+
+const identityRoles = ['文游作者', '美工美化', '小说作者', '美工', '美化', '画师', '文游', '作者']
+
+function firstValue(record, names) {
+  for (const name of names) {
+    const value = record[name]
+    if (value !== undefined && value !== null && String(value).trim() !== '') return value
+  }
+  return ''
+}
+
+function importIdentityRole(record, suffix) {
+  return firstValue(record, [
+    `domain${suffix}`, `field${suffix}`, `identity_role_${suffix}`, `identity_role${suffix}`,
+    `领域${suffix}`, `领域_${suffix}`,
+    ...(suffix === '1' ? ['domain', 'field', '领域', '身份领域'] : [])
+  ])
+}
+
+function importIdentityNickname(record, suffix) {
+  return firstValue(record, [
+    `circle_id${suffix}`, `circle_id_${suffix}`, `nickname${suffix}`, `nickname_${suffix}`,
+    `platform_id${suffix}`, `platform_id_${suffix}`, `圈名ID${suffix}`, `圈名ID_${suffix}`, `圈名${suffix}`,
+    ...(suffix === '1' ? ['circle_id', 'nickname', 'platform_id', '圈名ID', '圈名'] : [])
+  ])
+}
+
+function importIdentityUid(record, suffix) {
+  return firstValue(record, [
+    `uid${suffix}`, `uid_${suffix}`, `writer_uid${suffix}`, `writer_uid_${suffix}`,
+    `platform_uid${suffix}`, `platform_uid_${suffix}`, `UID${suffix}`, `UID_${suffix}`,
+    `文游UID${suffix}`, `文游UID_${suffix}`,
+    ...(suffix === '1' ? ['uid', 'writer_uid', 'platform_uid', 'UID', '文游UID'] : [])
+  ])
+}
+
+function importQq(record, suffix) {
+  return firstValue(record, [
+    `qq${suffix}`, `qq_${suffix}`, `QQ${suffix}`, `QQ_${suffix}`,
+    ...(suffix === '1' ? ['qq', 'QQ'] : [])
+  ])
+}
+
+function importDisplayId(record, suffix) {
+  return firstValue(record, [
+    `id${suffix}`, `id_${suffix}`, `user_id${suffix}`, `user_id_${suffix}`, `用户ID${suffix}`, `用户ID_${suffix}`,
+    ...(suffix === '1' ? ['id', 'user_id', '用户ID'] : [])
+  ])
+}
 
 function clearAll() {
   jsonText.value = ''
@@ -278,10 +335,27 @@ function validateAuth() {
     data.forEach((item, idx) => {
       const n = idx + 1
       if (!item.name && !item.sku_code) errors.push(`第 ${n} 条：缺少 name 或 sku_code 字段`)
-      const t1 = item.acquisition_type_1 || item.type1
+      const t1 = firstValue(item, ['acquisition_type_1', 'acquisition_type1', 'type1', 'type_1', '获取类型1', '获取类型_1'])
       if (!t1) errors.push(`第 ${n} 条：缺少 acquisition_type_1 字段`)
       else if (!VALID_TYPES.includes(t1)) errors.push(`第 ${n} 条：acquisition_type_1 值无效（${t1}）`)
-      if (!item.id1 && !item.qq1) errors.push(`第 ${n} 条：id1 和 qq1 至少填一项`)
+      const role1 = importIdentityRole(item, '1')
+      const nickname1 = importIdentityNickname(item, '1')
+      if (!importDisplayId(item, '1') && !importQq(item, '1') && !nickname1) {
+        errors.push(`第 ${n} 条：用户1需至少提供 id1、qq1 或圈名ID1`)
+      }
+      if (role1 && !identityRoles.includes(role1)) {
+        errors.push(`第 ${n} 条：领域1 仅支持文游作者、美工美化、小说作者`)
+      }
+      if (['文游作者', '文游', '作者'].includes(role1) && !importIdentityUid(item, '1')) {
+        errors.push(`第 ${n} 条：领域1 为文游作者时需填写 uid1/文游UID1`)
+      }
+      const role2 = importIdentityRole(item, '2')
+      if (role2 && !identityRoles.includes(role2)) {
+        errors.push(`第 ${n} 条：领域2 仅支持文游作者、美工美化、小说作者`)
+      }
+      if (['文游作者', '文游', '作者'].includes(role2) && !importIdentityUid(item, '2')) {
+        errors.push(`第 ${n} 条：领域2 为文游作者时需填写 uid2/文游UID2`)
+      }
     })
 
     if (errors.length > 0) {

@@ -15,6 +15,7 @@ const userIdentitySchema = new mongoose.Schema(
     role: { type: String, required: true, trim: true },
     platform: { type: String, required: true, trim: true },
     nickname: { type: String, required: true, trim: true },
+    uid: { type: String, trim: true },
     is_primary: { type: Boolean, default: false },
     status: {
       type: String,

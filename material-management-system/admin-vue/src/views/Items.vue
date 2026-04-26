@@ -36,11 +36,11 @@
         <span class="table-title">批量导入店铺素材</span>
       </div>
       <div style="padding:16px;">
-        <p class="text-sm text-muted" style="margin-bottom:8px;">请输入 JSON 数组，每个对象包含：sku_code, preview_url, name(必填), topics, artist(必填), price(必填), delivery_link, status（在售/结车/下架）</p>
+        <p class="text-sm text-muted" style="margin-bottom:8px;">请输入 JSON 数组，每个对象包含：sku_code, preview_url, name(必填), material_domain（文游类/美工美化类）, topics, artist(必填), price(必填), delivery_link, status（在售/结车/下架）</p>
         <div style="background:#f9fafb;padding:8px 12px;border-radius:6px;font-size:0.8rem;margin-bottom:12px;overflow-x:auto;">
           <pre style="margin:0;">[
-  { "sku_code": "260101", "preview_url": "https://...", "name": "素材A", "artist": "画师X", "price": 100, "topics": ["立绘","CG"], "delivery_link": "https://...", "status": "在售" },
-  { "sku_code": "260102", "name": "素材B", "artist": "画师Y", "price": 200, "topics": "场景/封面", "status": "结车" }
+  { "sku_code": "260101", "preview_url": "https://...", "name": "素材A", "material_domain": "美工美化类", "artist": "画师X", "price": 100, "topics": ["立绘","CG"], "delivery_link": "https://...", "status": "在售" },
+  { "sku_code": "260102", "name": "素材B", "material_domain": "文游类", "artist": "画师Y", "price": 200, "topics": "场景/封面", "status": "结车" }
 ]</pre>
         </div>
         <textarea
@@ -73,6 +73,7 @@
             <th style="padding:12px 16px;text-align:left;font-weight:600;font-size:13px;color:var(--text-secondary,#6b7280);">SKU</th>
             <th style="padding:12px 16px;text-align:left;font-weight:600;font-size:13px;color:var(--text-secondary,#6b7280);">结车图</th>
             <th style="padding:12px 16px;text-align:left;font-weight:600;font-size:13px;color:var(--text-secondary,#6b7280);">素材名称</th>
+            <th style="padding:12px 16px;text-align:left;font-weight:600;font-size:13px;color:var(--text-secondary,#6b7280);">归类</th>
             <th style="padding:12px 16px;text-align:left;font-weight:600;font-size:13px;color:var(--text-secondary,#6b7280);">画师</th>
             <th style="padding:12px 16px;text-align:left;font-weight:600;font-size:13px;color:var(--text-secondary,#6b7280);">价格(pts)</th>
             <th style="padding:12px 16px;text-align:left;font-weight:600;font-size:13px;color:var(--text-secondary,#6b7280);">状态</th>
@@ -81,10 +82,10 @@
         </thead>
         <tbody>
           <tr v-if="loading">
-            <td colspan="7" class="table-loading">加载中...</td>
+            <td colspan="8" class="table-loading">加载中...</td>
           </tr>
           <tr v-else-if="items.length === 0">
-            <td colspan="7" class="table-empty">暂无素材数据</td>
+            <td colspan="8" class="table-empty">暂无素材数据</td>
           </tr>
           <template v-else>
             <tr v-for="item in items" :key="item._id" class="table-row-hover">
@@ -94,6 +95,7 @@
                 <div v-else class="img-placeholder" style="width:56px;height:40px;display:flex;align-items:center;justify-content:center;">无图</div>
               </td>
               <td style="padding:10px 16px;font-weight:500;">{{ item.name }}</td>
+              <td style="padding:10px 16px;color:var(--text-secondary,#6b7280);">{{ item.material_domain || '美工美化类' }}</td>
               <td style="padding:10px 16px;color:var(--text-secondary,#6b7280);">{{ item.artist || '—' }}</td>
               <td style="padding:10px 16px;">{{ item.price }}</td>
               <td style="padding:10px 16px;">

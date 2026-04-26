@@ -62,7 +62,7 @@ async function download(url, filename) {
 
 // Auth
 export const authAPI = {
-  login: (data) => request('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+  login: (data) => request('/admin/auth/login', { method: 'POST', body: JSON.stringify(data) }),
 }
 
 // Admin - Items

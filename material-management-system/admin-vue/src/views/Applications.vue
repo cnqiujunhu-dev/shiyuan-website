@@ -96,7 +96,13 @@
               <p>平台 UID：{{ decideModal.row?.user_id?.uid || decideModal.row?.payload?.uid || '-' }}</p>
               <p>主 QQ：{{ decideModal.row?.user_id?.qq || decideModal.row?.payload?.qq || '-' }}</p>
               <p>QQ 邮箱：{{ decideModal.row?.user_id?.email || decideModal.row?.payload?.email || '-' }}</p>
-              <p>主身份：{{ identityText(decideModal.row?.payload?.identity) }}</p>
+              <p>登记身份：</p>
+              <ul v-if="applicationIdentities(decideModal.row).length" style="margin:4px 0 0 18px;padding:0;line-height:1.8;">
+                <li v-for="(identity, index) in applicationIdentities(decideModal.row)" :key="identity.id || identity._id || `${identity.nickname}-${index}`">
+                  {{ index === 0 ? '主身份' : `副身份 ${index}` }}：{{ identityText(identity) }}
+                </li>
+              </ul>
+              <p v-else>-</p>
             </template>
             <template v-else-if="decideModal.row?.type === 'identity'">
               <p>用户：{{ decideModal.row?.user_id?.username || '-' }}</p>
@@ -236,7 +242,9 @@ function applicantMeta(row) {
 
 function applicationTitle(row) {
   if (row.type === 'registration') {
-    return `UID：${row.user_id?.uid || row.payload?.uid || '-'}`
+    const identities = applicationIdentities(row)
+    const first = identities[0]
+    return first ? `登记身份：${first.nickname || '-'}${identities.length > 1 ? ` 等 ${identities.length} 个` : ''}` : `UID：${row.user_id?.uid || row.payload?.uid || '-'}`
   }
   if (row.type === 'identity') {
     return `新增身份：${row.payload?.identity?.nickname || '-'}`
@@ -245,14 +253,22 @@ function applicationTitle(row) {
 }
 
 function applicationSubTitle(row) {
-  if (row.type === 'registration') return identityText(row.payload?.identity)
+  if (row.type === 'registration') return applicationIdentities(row).map(identityText).join('；')
   if (row.type === 'identity') return identityText(row.payload?.identity)
   return row.payload?.reason || ''
 }
 
+function applicationIdentities(row) {
+  if (!row) return []
+  if (Array.isArray(row.payload?.identities) && row.payload.identities.length) return row.payload.identities
+  if (row.payload?.identity) return [row.payload.identity]
+  if (Array.isArray(row.user_id?.identities)) return row.user_id.identities
+  return []
+}
+
 function identityText(identity) {
   if (!identity) return '-'
-  return [identity.role, identity.platform, identity.nickname].filter(Boolean).join(' / ') || '-'
+  return [identity.role, identity.platform, identity.nickname, identity.uid ? `UID：${identity.uid}` : ''].filter(Boolean).join(' / ') || '-'
 }
 
 const decideModal = ref({

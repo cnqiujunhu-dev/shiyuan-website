@@ -5,6 +5,7 @@ const itemSchema = new mongoose.Schema(
     sku_code: { type: String },
     name: { type: String, required: true },
     artist: { type: String, required: true },
+    material_domain: { type: String, enum: ['文游类', '美工美化类'], default: '美工美化类' },
     topics: [{ type: String }],
     categories: [{ type: String }],
     price: { type: Number, required: true },

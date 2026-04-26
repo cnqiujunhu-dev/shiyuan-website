@@ -109,7 +109,8 @@
               <th>类型</th>
               <th>职业</th>
               <th>平台</th>
-              <th>圈名</th>
+              <th>圈名 ID</th>
+              <th>UID</th>
               <th>状态</th>
               <th>提交时间</th>
               <th>审核时间</th>
@@ -125,6 +126,7 @@
               <td>{{ identity.role || '-' }}</td>
               <td>{{ identity.platform || '-' }}</td>
               <td>{{ identity.nickname || '-' }}</td>
+              <td>{{ identity.uid || '-' }}</td>
               <td>
                 <span class="status-badge" :class="registrationStatusClass(identity.status)">
                   {{ registrationStatusLabel(identity.status) }}

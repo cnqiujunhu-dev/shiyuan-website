@@ -6,6 +6,17 @@ const User = require('../models/User');
 const { syncUserVip } = require('../services/vipService');
 const logger = require('../config/logger');
 const { normalizeItem } = require('../utils/publicUrl');
+const { selectIdentityForMaterial, buildOwnershipIdentityFields } = require('../utils/identity');
+
+function buildStoredOwnershipIdentityFields(ownership) {
+  if (!ownership?.identity_role && !ownership?.identity_nickname && !ownership?.identity_uid) return {};
+  return {
+    identity_id: ownership.identity_id,
+    identity_role: ownership.identity_role,
+    identity_nickname: ownership.identity_nickname,
+    identity_uid: ownership.identity_uid || ''
+  };
+}
 
 exports.getMyAssets = async (req, res) => {
   const { topic, artist, acquisition_type, page = 1, limit = 20 } = req.query;
@@ -128,6 +139,10 @@ exports.transferAsset = async (req, res) => {
     session.startTransaction();
     try {
       const now = new Date();
+      const actorIdentityFields = Object.keys(buildStoredOwnershipIdentityFields(ownership)).length
+        ? buildStoredOwnershipIdentityFields(ownership)
+        : buildOwnershipIdentityFields(selectIdentityForMaterial(actor, item.material_domain));
+      const targetIdentityFields = buildOwnershipIdentityFields(selectIdentityForMaterial(targetUser, item.material_domain));
 
       // Deactivate the original self ownership while keeping it for rollback recovery.
       await Ownership.findByIdAndUpdate(ownership._id, { active: false }, { session });
@@ -140,6 +155,7 @@ exports.transferAsset = async (req, res) => {
           points_delta: 0,
           occurred_at: now,
           target_user_id: targetUser._id,
+          ...actorIdentityFields,
           active: true
         },
         {
@@ -150,6 +166,7 @@ exports.transferAsset = async (req, res) => {
           occurred_at: now,
           delivery_link: ownership.delivery_link || item.delivery_link,
           source_user_id: actor._id,
+          ...targetIdentityFields,
           active: true
         }
       ], { session });
@@ -210,7 +227,11 @@ exports.sponsorAsset = async (req, res) => {
     }
 
     const actor = await User.findById(req.user.id);
+    if (!actor) {
+      return res.status(404).json({ message: '用户不存在' });
+    }
     const now = new Date();
+    const actorIdentityFields = buildOwnershipIdentityFields(selectIdentityForMaterial(actor, item.material_domain));
 
     // If no target specified, create sponsor_pending
     if (!target_id && !target_qq) {
@@ -223,6 +244,7 @@ exports.sponsorAsset = async (req, res) => {
           acquisition_type: 'sponsor_pending',
           points_delta: item.price,
           occurred_at: now,
+          ...actorIdentityFields,
           active: true
         }], { session });
 
@@ -275,6 +297,7 @@ exports.sponsorAsset = async (req, res) => {
     if (existingOwnership) {
       return res.status(400).json({ message: '对方已拥有该素材' });
     }
+    const targetIdentityFields = buildOwnershipIdentityFields(selectIdentityForMaterial(targetUser, item.material_domain));
 
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -287,6 +310,7 @@ exports.sponsorAsset = async (req, res) => {
           points_delta: item.price,
           occurred_at: now,
           target_user_id: targetUser._id,
+          ...actorIdentityFields,
           active: true
         },
         {
@@ -297,6 +321,7 @@ exports.sponsorAsset = async (req, res) => {
           occurred_at: now,
           delivery_link: item.delivery_link,
           source_user_id: actor._id,
+          ...targetIdentityFields,
           active: true
         }
       ], { session });
@@ -386,6 +411,7 @@ exports.registerSponsor = async (req, res) => {
     if (existingOwnership) {
       return res.status(400).json({ message: '被赞助方已拥有该素材' });
     }
+    const targetIdentityFields = buildOwnershipIdentityFields(selectIdentityForMaterial(targetUser, item.material_domain));
     const now = new Date();
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -405,6 +431,7 @@ exports.registerSponsor = async (req, res) => {
         occurred_at: now,
         delivery_link: item.delivery_link,
         source_user_id: req.user.id,
+        ...targetIdentityFields,
         active: true
       }], { session });
 

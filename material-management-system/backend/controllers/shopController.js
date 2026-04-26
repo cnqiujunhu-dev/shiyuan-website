@@ -7,6 +7,7 @@ const VipLevel = require('../models/VipLevel');
 const { syncUserVip } = require('../services/vipService');
 const logger = require('../config/logger');
 const { normalizeItem } = require('../utils/publicUrl');
+const { selectIdentityForMaterial, buildOwnershipIdentityFields } = require('../utils/identity');
 
 exports.getShopItems = async (req, res) => {
   const { topic, artist, status, page = 1, limit = 20 } = req.query;
@@ -90,13 +91,16 @@ exports.buySelf = async (req, res) => {
       return res.status(403).json({ message: '该商品为 VIP 优先购商品，需要 VIP 资格才能购买' });
     }
     const now = new Date();
+    const actorIdentityFields = buildOwnershipIdentityFields(selectIdentityForMaterial(actor, item.material_domain));
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
       await Ownership.create([{
         user_id: actor._id, item_id: item._id,
         acquisition_type: 'self', points_delta: item.price,
-        occurred_at: now, delivery_link: item.delivery_link, active: true
+        occurred_at: now, delivery_link: item.delivery_link,
+        ...actorIdentityFields,
+        active: true
       }], { session });
 
       await Transaction.create([{
@@ -158,13 +162,16 @@ exports.skipQueueBuy = async (req, res) => {
     }
 
     const now = new Date();
+    const actorIdentityFields = buildOwnershipIdentityFields(selectIdentityForMaterial(actor, item.material_domain));
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
       await Ownership.create([{
         user_id: actor._id, item_id: item._id,
         acquisition_type: 'self', points_delta: item.price,
-        occurred_at: now, delivery_link: item.delivery_link, active: true
+        occurred_at: now, delivery_link: item.delivery_link,
+        ...actorIdentityFields,
+        active: true
       }], { session });
 
       await Transaction.create([{

@@ -32,6 +32,13 @@
             <span v-if="errors.artist" class="form-error">{{ errors.artist }}</span>
           </div>
           <div class="form-group">
+            <label class="form-label">素材归类</label>
+            <select v-model="form.material_domain" class="form-select">
+              <option value="文游类">文游类</option>
+              <option value="美工美化类">美工美化类</option>
+            </select>
+          </div>
+          <div class="form-group">
             <label class="form-label">价格(pts) <span style="color:#ef4444;">*</span></label>
             <input v-model.number="form.price" type="number" min="0" class="form-input" placeholder="请输入价格" required />
             <span v-if="errors.price" class="form-error">{{ errors.price }}</span>
@@ -184,6 +191,7 @@ const form = ref({
   sku_code: '',
   name: '',
   artist: '',
+  material_domain: '美工美化类',
   price: '',
   status: 'on_sale',
   priority_only: false,
@@ -254,6 +262,7 @@ async function loadItem() {
       sku_code: item.sku_code || '',
       name: item.name || '',
       artist: item.artist || '',
+      material_domain: item.material_domain || '美工美化类',
       price: item.price ?? '',
       status: item.status || 'on_sale',
       priority_only: !!item.priority_only,
@@ -282,6 +291,7 @@ async function handleSubmit() {
     fd.append('sku_code', form.value.sku_code)
     fd.append('name', form.value.name)
     fd.append('artist', form.value.artist)
+    fd.append('material_domain', form.value.material_domain)
     fd.append('price', String(Number(form.value.price)))
     fd.append('status', form.value.status)
     fd.append('priority_only', String(!!form.value.priority_only))

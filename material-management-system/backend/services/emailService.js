@@ -84,13 +84,27 @@ async function sendRegistrationCodeEmail(email, code) {
   await sendMail(email, subject, html);
 }
 
+async function sendLoginCodeEmail(email, code) {
+  const subject = '【诸城叙梦】登录验证码';
+  const html = `
+    <p>您正在登录诸城叙梦素材平台。</p>
+    <p>本次登录验证码为：<strong>${code}</strong></p>
+    <p>验证码有效期 10 分钟，请勿泄露给他人。如非本人操作，请忽略本邮件。</p>
+  `;
+  if (!isMailConfigured()) {
+    logger.warn('Mail not configured — login code not sent', { email, code });
+    throw new Error('邮件服务未配置，请联系管理员');
+  }
+  await sendMail(email, subject, html);
+}
+
 async function sendRegistrationApprovedEmail(email, user = {}) {
   const subject = '【诸城叙梦】注册审核已通过';
   const html = `
     <p>您的诸城叙梦素材平台账号已通过审核，现在可以登录使用。</p>
     <p>自定义 ID：<strong>${escapeHtml(user.username)}</strong></p>
     <p>平台 UID：<strong>${escapeHtml(user.uid)}</strong></p>
-    <p>请使用注册时设置的自定义 ID 和密码登录。</p>
+    <p>请使用注册 QQ 接收验证码后登录。</p>
   `;
   if (!isMailConfigured()) {
     logger.warn('Mail not configured — registration approval not sent', { email, userId: user.id || user._id });
@@ -128,6 +142,7 @@ async function sendPasswordResetEmail(email, code) {
 module.exports = {
   sendVerifyEmail,
   sendRegistrationCodeEmail,
+  sendLoginCodeEmail,
   sendRegistrationApprovedEmail,
   sendRegistrationRejectedEmail,
   sendPasswordResetEmail

@@ -4,32 +4,17 @@
       <div class="auth-logo">📦 诸城叙梦</div>
       <div class="form-container register-card">
         <div class="form-title">创建账户</div>
-        <div class="form-subtitle">填写 QQ 号与主身份，验证后提交管理员审核</div>
+        <div class="form-subtitle">{{ qqVerified ? '登记身份后提交管理员审核' : '先验证 QQ 邮箱，再登记身份' }}</div>
 
         <div v-if="errorMsg" class="alert alert-error">{{ errorMsg }}</div>
         <div v-if="successMsg" class="alert alert-success">{{ successMsg }}</div>
 
-        <form @submit.prevent="handleRegister" v-if="!registrationComplete">
+        <form v-if="!qqVerified && !registrationComplete" @submit.prevent="handleVerifyStep">
           <div class="form-group">
-            <label class="form-label">自定义 ID <span class="text-muted text-xs">（2-30 位，可含中文或常用符号）</span></label>
-            <input
-              v-model="form.username"
-              type="text"
-              class="form-input"
-              :class="{ error: errors.username }"
-              placeholder="请输入自定义 ID"
-              autocomplete="username"
-              minlength="2"
-              maxlength="30"
-            />
-            <div class="form-error" v-if="errors.username">{{ errors.username }}</div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">主 QQ</label>
+            <label class="form-label">QQ 号</label>
             <div style="display:flex;gap:8px;">
               <input
-                v-model="form.qq"
+                v-model="qqForm.qq"
                 type="text"
                 inputmode="numeric"
                 class="form-input"
@@ -38,74 +23,16 @@
                 autocomplete="off"
                 :disabled="codeSent"
               />
-              <button
-                v-if="codeSent"
-                type="button"
-                class="btn btn-secondary"
-                style="white-space:nowrap;"
-                @click="resetCodeStep"
-              >
-                修改
-              </button>
+              <button v-if="codeSent" type="button" class="btn btn-secondary" @click="resetCodeStep">修改</button>
             </div>
             <div class="form-error" v-if="errors.qq">{{ errors.qq }}</div>
             <div class="text-xs text-muted mt-1">验证码将发送至 {{ qqEmailPreview || 'QQ邮箱' }}</div>
           </div>
 
-          <div class="form-group">
-            <label class="form-label">主身份</label>
-            <div class="identity-grid">
-              <select v-model="form.identity.role" class="form-input" :class="{ error: errors.role }">
-                <option value="">职业</option>
-                <option v-for="role in roleOptions" :key="role" :value="role">{{ role }}</option>
-              </select>
-              <select v-model="form.identity.platform" class="form-input" :class="{ error: errors.platform }">
-                <option value="">平台</option>
-                <option v-for="platform in platformOptions" :key="platform" :value="platform">{{ platform }}</option>
-              </select>
-            </div>
-            <input
-              v-model="form.identity.nickname"
-              type="text"
-              class="form-input mt-2"
-              :class="{ error: errors.nickname }"
-              placeholder="圈名"
-              maxlength="50"
-            />
-            <div class="form-error" v-if="identityError">{{ identityError }}</div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">密码 <span class="text-muted text-xs">（至少 6 位）</span></label>
-            <input
-              v-model="form.password"
-              type="password"
-              class="form-input"
-              :class="{ error: errors.password }"
-              placeholder="请输入密码"
-              autocomplete="new-password"
-              minlength="6"
-            />
-            <div class="form-error" v-if="errors.password">{{ errors.password }}</div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">确认密码</label>
-            <input
-              v-model="form.confirmPassword"
-              type="password"
-              class="form-input"
-              :class="{ error: errors.confirmPassword }"
-              placeholder="请再次输入密码"
-              autocomplete="new-password"
-            />
-            <div class="form-error" v-if="errors.confirmPassword">{{ errors.confirmPassword }}</div>
-          </div>
-
           <div v-if="codeSent" class="form-group">
             <label class="form-label">验证码</label>
             <input
-              v-model="form.code"
+              v-model="qqForm.code"
               type="text"
               inputmode="numeric"
               class="form-input"
@@ -127,7 +54,60 @@
           </div>
 
           <button type="submit" class="form-submit" :disabled="loading">
-            {{ loading ? (codeSent ? '提交中...' : '发送中...') : (codeSent ? '提交审核' : '发送验证码') }}
+            {{ loading ? (codeSent ? '验证中...' : '发送中...') : (codeSent ? '验证 QQ' : '发送验证码') }}
+          </button>
+        </form>
+
+        <form v-else-if="!registrationComplete" @submit.prevent="openConfirm">
+          <div class="verified-strip">
+            <span>已验证 QQ</span>
+            <strong>{{ qqForm.qq }}</strong>
+          </div>
+
+          <div class="identity-header">
+            <label class="form-label">身份登记</label>
+            <button type="button" class="btn btn-secondary btn-sm" @click="addIdentity">新增副身份</button>
+          </div>
+
+          <div v-for="(identity, index) in identities" :key="identity.localId" class="identity-card">
+            <div class="identity-card-head">
+              <span>{{ index === 0 ? '主身份' : `副身份 ${index}` }}</span>
+              <button v-if="index > 0" type="button" class="remove-btn" @click="removeIdentity(index)">&times;</button>
+            </div>
+            <div class="identity-grid">
+              <input
+                v-model="identity.nickname"
+                type="text"
+                class="form-input"
+                :class="{ error: identity.errors.nickname }"
+                placeholder="圈名 ID"
+                maxlength="50"
+              />
+              <select v-model="identity.role" class="form-input" :class="{ error: identity.errors.role }">
+                <option value="">身份</option>
+                <option v-for="role in roleOptions" :key="role" :value="role">{{ role }}</option>
+              </select>
+              <select v-model="identity.platform" class="form-input" :class="{ error: identity.errors.platform }">
+                <option value="">平台</option>
+                <option v-for="platform in platformOptions" :key="platform" :value="platform">{{ platform }}</option>
+              </select>
+            </div>
+            <div v-if="identity.role === '文游作者'" class="form-group mt-2">
+              <label class="form-label text-xs">文游作者 UID</label>
+              <input
+                v-model="identity.uid"
+                type="text"
+                class="form-input"
+                :class="{ error: identity.errors.uid }"
+                placeholder="请输入该平台作品/作者 UID"
+                maxlength="50"
+              />
+            </div>
+            <div v-if="identityError(identity)" class="form-error mt-2">{{ identityError(identity) }}</div>
+          </div>
+
+          <button type="submit" class="form-submit" :disabled="loading">
+            {{ loading ? '提交中...' : '提交审核' }}
           </button>
         </form>
 
@@ -166,99 +146,103 @@
 import { computed, ref, reactive, onBeforeUnmount } from 'vue'
 import { authAPI } from '@/api/index.js'
 
-const roleOptions = ['美工', '画师', '文游作者', '小说作者', '美化']
-const platformOptions = ['全平台', '橙光', '易次元', '闪艺', '番茄', '晋江', '小红书', '微博', '快手', '抖音', '米画师', '画加']
+const roleOptions = ['文游作者', '美工美化', '小说作者']
+const platformOptions = ['全平台', '橙光', '易次元', '闪艺', '晋江', '番茄', '微博', '小红书', '抖音', '快手']
 
-const form = reactive({
-  username: '',
-  qq: '',
-  password: '',
-  confirmPassword: '',
-  code: '',
-  identity: { role: '', platform: '', nickname: '' }
-})
-const errors = reactive({
-  username: '',
-  qq: '',
-  password: '',
-  confirmPassword: '',
-  code: '',
-  role: '',
-  platform: '',
-  nickname: ''
-})
+const qqForm = reactive({ qq: '', code: '' })
+const errors = reactive({ qq: '', code: '' })
 const loading = ref(false)
 const errorMsg = ref('')
 const successMsg = ref('')
 const registrationComplete = ref(false)
 const codeSent = ref(false)
+const qqVerified = ref(false)
 const resendSeconds = ref(0)
 const confirmModal = ref(false)
 let resendTimer = null
 
+const identities = ref([createIdentity(true)])
+
 const qqEmailPreview = computed(() => {
-  const qq = form.qq.trim()
+  const qq = qqForm.qq.trim()
   return /^\d{5,12}$/.test(qq) ? `${qq}@qq.com` : ''
 })
 
-const identityError = computed(() => errors.role || errors.platform || errors.nickname)
-
-function clearErrors() {
-  Object.keys(errors).forEach((key) => {
-    errors[key] = ''
-  })
+function createIdentity(isPrimary = false) {
+  return {
+    localId: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
+    is_primary: isPrimary,
+    nickname: '',
+    role: '',
+    platform: '',
+    uid: '',
+    errors: { nickname: '', role: '', platform: '', uid: '' }
+  }
 }
 
-function validateAccount() {
-  clearErrors()
-  let valid = true
-  const username = form.username.trim()
-  const qq = form.qq.trim()
-  const nickname = form.identity.nickname.trim()
-  if (username.length < 2 || username.length > 30) {
-    errors.username = '自定义 ID 长度须为 2-30 位'
-    valid = false
-  } else if (!/^[^\r\n\t<>]+$/.test(username)) {
-    errors.username = '自定义 ID 不能包含换行或尖括号'
-    valid = false
-  }
-  if (!/^\d{5,12}$/.test(qq)) {
+function validateQq() {
+  errors.qq = ''
+  if (!/^\d{5,12}$/.test(qqForm.qq.trim())) {
     errors.qq = '请输入正确的 QQ 号'
+    return false
+  }
+  return true
+}
+
+function validateCode() {
+  errors.code = ''
+  if (!/^\d{6}$/.test(qqForm.code.trim())) {
+    errors.code = '请输入 6 位验证码'
+    return false
+  }
+  return true
+}
+
+function clearIdentityErrors(identity) {
+  identity.errors.nickname = ''
+  identity.errors.role = ''
+  identity.errors.platform = ''
+  identity.errors.uid = ''
+}
+
+function validateIdentity(identity) {
+  clearIdentityErrors(identity)
+  let valid = true
+  if (!identity.nickname.trim()) {
+    identity.errors.nickname = '请输入圈名 ID'
+    valid = false
+  } else if (/[<>\r\n\t]/.test(identity.nickname)) {
+    identity.errors.nickname = '圈名 ID 不能包含换行或尖括号'
     valid = false
   }
-  if (!form.identity.role) {
-    errors.role = '请选择职业'
+  if (!identity.role) {
+    identity.errors.role = '请选择身份'
     valid = false
   }
-  if (!form.identity.platform) {
-    errors.platform = '请选择平台'
+  if (!identity.platform) {
+    identity.errors.platform = '请选择平台'
     valid = false
   }
-  if (!nickname) {
-    errors.nickname = '请输入圈名'
+  if (identity.role === '文游作者' && !identity.uid.trim()) {
+    identity.errors.uid = '请填写文游作者 UID'
     valid = false
-  } else if (/[<>\r\n\t]/.test(nickname)) {
-    errors.nickname = '圈名不能包含换行或尖括号'
-    valid = false
-  }
-  if (form.password.length < 6) {
-    errors.password = '密码至少 6 位'
-    valid = false
-  }
-  if (form.password !== form.confirmPassword) {
-    errors.confirmPassword = '两次输入的密码不一致'
+  } else if (/[<>\r\n\t]/.test(identity.uid)) {
+    identity.errors.uid = 'UID 不能包含换行或尖括号'
     valid = false
   }
   return valid
 }
 
-function validateCode() {
-  if (!/^\d{6}$/.test(form.code.trim())) {
-    errors.code = '请输入 6 位验证码'
-    return false
-  }
-  errors.code = ''
-  return true
+function validateIdentities() {
+  let valid = identities.value.length > 0
+  identities.value.forEach((identity) => {
+    if (!validateIdentity(identity)) valid = false
+  })
+  return valid
+}
+
+function identityError(identity) {
+  return identity.errors.nickname || identity.errors.role || identity.errors.platform || identity.errors.uid
 }
 
 function startResendCountdown(seconds = 60) {
@@ -275,7 +259,7 @@ function startResendCountdown(seconds = 60) {
 
 function resetCodeStep() {
   codeSent.value = false
-  form.code = ''
+  qqForm.code = ''
   successMsg.value = ''
   if (resendTimer) clearInterval(resendTimer)
   resendTimer = null
@@ -285,12 +269,12 @@ function resetCodeStep() {
 async function sendCode() {
   errorMsg.value = ''
   successMsg.value = ''
-  if (!validateAccount()) return
+  if (!validateQq()) return
   loading.value = true
   try {
-    await authAPI.sendRegisterCode({ username: form.username.trim(), qq: form.qq.trim() })
+    await authAPI.sendRegisterCode({ qq: qqForm.qq.trim() })
     codeSent.value = true
-    successMsg.value = `验证码已发送至 ${qqEmailPreview.value}，请在 10 分钟内提交审核。`
+    successMsg.value = `验证码已发送至 ${qqEmailPreview.value}。`
     startResendCountdown(60)
   } catch (e) {
     errorMsg.value = e?.message || '验证码发送失败，请稍后重试'
@@ -299,32 +283,55 @@ async function sendCode() {
   }
 }
 
-async function handleRegister() {
+async function handleVerifyStep() {
   if (!codeSent.value) {
     await sendCode()
     return
   }
   errorMsg.value = ''
-  if (!validateAccount() || !validateCode()) return
+  if (!validateQq() || !validateCode()) return
+  loading.value = true
+  try {
+    const res = await authAPI.verifyRegisterCode({ qq: qqForm.qq.trim(), code: qqForm.code.trim() })
+    qqVerified.value = true
+    successMsg.value = res.message || 'QQ 邮箱验证成功，请继续登记身份。'
+  } catch (e) {
+    errorMsg.value = e?.message || '验证失败，请稍后重试'
+  } finally {
+    loading.value = false
+  }
+}
+
+function addIdentity() {
+  identities.value.push(createIdentity(false))
+}
+
+function removeIdentity(index) {
+  identities.value.splice(index, 1)
+}
+
+function openConfirm() {
+  errorMsg.value = ''
+  if (!validateIdentities()) return
   confirmModal.value = true
 }
 
 async function submitRegister() {
   errorMsg.value = ''
-  if (!validateAccount() || !validateCode()) return
+  if (!validateIdentities()) return
   loading.value = true
   try {
-    const res = await authAPI.register({
-      username: form.username.trim(),
-      qq: form.qq.trim(),
-      password: form.password,
-      code: form.code.trim(),
-      identity: {
-        role: form.identity.role,
-        platform: form.identity.platform,
-        nickname: form.identity.nickname.trim()
-      }
-    })
+    const payload = {
+      qq: qqForm.qq.trim(),
+      identities: identities.value.map((identity, index) => ({
+        role: identity.role,
+        platform: identity.platform,
+        nickname: identity.nickname.trim(),
+        uid: identity.role === '文游作者' ? identity.uid.trim() : '',
+        is_primary: index === 0
+      }))
+    }
+    const res = await authAPI.register(payload)
     confirmModal.value = false
     registrationComplete.value = true
     successMsg.value = res.message || '注册申请已提交，审核通过后会发送邮件通知您登录。'
@@ -344,20 +351,62 @@ onBeforeUnmount(() => {
 <style scoped>
 .register-wrap {
   width: 100%;
-  max-width: 520px;
+  max-width: 640px;
 }
 
 .register-card {
-  max-width: 520px;
+  max-width: 640px;
+}
+
+.verified-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--primary-light);
+  color: var(--primary);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  margin-bottom: 18px;
+}
+
+.identity-header,
+.identity-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.identity-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-bottom: 12px;
+  background: #fff;
+}
+
+.identity-card-head {
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-bottom: 10px;
 }
 
 .identity-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1.2fr 1fr 1fr;
   gap: 10px;
 }
 
-@media (max-width: 480px) {
+.remove-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
   .identity-grid {
     grid-template-columns: 1fr;
   }

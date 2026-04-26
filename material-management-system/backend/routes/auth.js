@@ -53,21 +53,29 @@ const identityValidation = () => body().custom((_, { req }) => {
   return true;
 });
 
+const qqValidation = () => body('qq')
+  .trim()
+  .matches(/^\d{5,12}$/)
+  .withMessage('QQ 号格式不正确');
+
 const registerValidation = [
-  usernameValidation(),
-  qqOrEmailValidation(),
-  identityValidation(),
-  body('password').isLength({ min: 6 }).withMessage('密码至少 6 个字符'),
-  body('code').trim().isLength({ min: 6, max: 6 }).withMessage('验证码格式不正确')
+  qqValidation()
 ];
 
 const registerCodeValidation = [
-  usernameValidation().optional(),
-  qqOrEmailValidation()
+  qqValidation()
+];
+
+const verifyCodeValidation = [
+  qqValidation(),
+  body('code').trim().isLength({ min: 6, max: 6 }).withMessage('验证码格式不正确')
 ];
 
 router.post('/register/send-code', authLimiter, registerCodeValidation, authController.sendRegisterCode);
+router.post('/register/verify-code', authLimiter, verifyCodeValidation, authController.verifyRegisterCode);
 router.post('/register', authLimiter, registerValidation, authController.register);
+router.post('/login/send-code', authLimiter, registerCodeValidation, authController.sendLoginCode);
+router.post('/login/code', authLimiter, verifyCodeValidation, authController.loginWithCode);
 router.post('/login', authLimiter, [
   body('username').trim().notEmpty().withMessage('请输入自定义 ID'),
   body('password').notEmpty().withMessage('请输入密码')

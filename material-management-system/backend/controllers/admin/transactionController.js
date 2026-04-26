@@ -7,6 +7,11 @@ const Transaction = require('../../models/Transaction');
 const { syncUserVip } = require('../../services/vipService');
 const auditService = require('../../services/auditService');
 const logger = require('../../config/logger');
+const {
+  normalizeIdentity,
+  getIdentityValidationMessage,
+  serializeIdentities
+} = require('../../utils/identity');
 
 function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -26,6 +31,157 @@ function buildDateRangeEnd(value) {
 
 function resolveOccurredAt(record) {
   return record.date || record.occurred_at ? new Date(record.date || record.occurred_at) : new Date();
+}
+
+function getFirstValue(record, names) {
+  for (const name of names) {
+    const value = record[name];
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+function buildOwnershipIdentityFields(identityDoc) {
+  if (!identityDoc) return {};
+  return {
+    identity_id: identityDoc._id,
+    identity_role: identityDoc.role,
+    identity_nickname: identityDoc.nickname,
+    identity_uid: identityDoc.uid || ''
+  };
+}
+
+function getPrimaryIdentity(user) {
+  const identities = user?.identities || [];
+  if (identities.length === 1) return identities[0];
+  return identities.find(identity => identity.is_primary && identity.status !== 'rejected')
+    || identities.find(identity => identity.status === 'approved')
+    || identities[0];
+}
+
+function getImportIdentity(record, suffix) {
+  const role = getFirstValue(record, [
+    `domain${suffix}`,
+    `field${suffix}`,
+    `identity_role_${suffix}`,
+    `identity_role${suffix}`,
+    `领域${suffix}`,
+    `领域_${suffix}`,
+    suffix === '1' ? 'domain' : '',
+    suffix === '1' ? 'field' : '',
+    suffix === '1' ? '领域' : '',
+    suffix === '1' ? '身份领域' : ''
+  ].filter(Boolean));
+  const nickname = getFirstValue(record, [
+    `circle_id${suffix}`,
+    `circle_id_${suffix}`,
+    `circleId${suffix}`,
+    `nickname${suffix}`,
+    `nickname_${suffix}`,
+    `platform_id${suffix}`,
+    `platform_id_${suffix}`,
+    `id${suffix}`,
+    `圈名ID${suffix}`,
+    `圈名ID_${suffix}`,
+    `圈名${suffix}`
+  ].concat(suffix === '1' ? ['circle_id', 'circleId', 'nickname', 'platform_id', '圈名ID', '圈名'] : []));
+  const platform = getFirstValue(record, [
+    `platform${suffix}`,
+    `platform_${suffix}`,
+    `平台${suffix}`,
+    `平台_${suffix}`
+  ].concat(suffix === '1' ? ['platform', '平台'] : []));
+  const uid = getFirstValue(record, [
+    `uid${suffix}`,
+    `uid_${suffix}`,
+    `writer_uid${suffix}`,
+    `writer_uid_${suffix}`,
+    `platform_uid${suffix}`,
+    `platform_uid_${suffix}`,
+    `UID${suffix}`,
+    `UID_${suffix}`,
+    `文游UID${suffix}`,
+    `文游UID_${suffix}`
+  ].concat(suffix === '1' ? ['uid', 'writer_uid', 'platform_uid', 'UID', '文游UID'] : []));
+  if (!role && !nickname && !uid) return null;
+  const identity = normalizeIdentity({ role, nickname, uid, platform });
+  const validationMessage = getIdentityValidationMessage(identity);
+  if (validationMessage) {
+    throw new Error(`用户${suffix}身份信息错误：${validationMessage}`);
+  }
+  return identity;
+}
+
+function getImportQq(record, suffix) {
+  return getFirstValue(record, [
+    `qq${suffix}`,
+    `qq_${suffix}`,
+    `QQ${suffix}`,
+    `QQ_${suffix}`,
+    `用户QQ${suffix}`,
+    `用户QQ_${suffix}`
+  ].concat(suffix === '1' ? ['qq', 'QQ', '用户QQ'] : []));
+}
+
+function getImportDisplayId(record, suffix) {
+  return getFirstValue(record, [
+    `id${suffix}`,
+    `id_${suffix}`,
+    `user_id${suffix}`,
+    `user_id_${suffix}`,
+    `用户ID${suffix}`,
+    `用户ID_${suffix}`
+  ].concat(suffix === '1' ? ['id', 'user_id', '用户ID'] : []));
+}
+
+function getImportAcquisitionType(record, suffix) {
+  return getFirstValue(record, [
+    `acquisition_type_${suffix}`,
+    `acquisition_type${suffix}`,
+    `type${suffix}`,
+    `type_${suffix}`,
+    `获取类型${suffix}`,
+    `获取类型_${suffix}`
+  ]);
+}
+
+async function buildUniqueImportedUsername(base) {
+  const raw = String(base || `user_${Date.now()}`).trim().replace(/[<>\r\n\t]/g, '').slice(0, 30) || `user_${Date.now()}`;
+  const candidates = [raw, `${raw}_${Date.now().toString().slice(-4)}`.slice(0, 30)];
+  for (let i = 0; i < 5; i++) {
+    candidates.push(`${raw}_${Math.random().toString(16).slice(2, 6)}`.slice(0, 30));
+  }
+  for (const candidate of candidates) {
+    const exists = await User.exists({ username: candidate });
+    if (!exists) return candidate;
+  }
+  return `user_${Date.now()}`;
+}
+
+async function ensureUserIdentity(user, identityInput) {
+  if (!identityInput) return getPrimaryIdentity(user);
+  const existing = (user.identities || []).find(identity => (
+    identity.role === identityInput.role
+    && identity.platform === identityInput.platform
+    && identity.nickname === identityInput.nickname
+    && String(identity.uid || '') === String(identityInput.uid || '')
+    && identity.status !== 'rejected'
+  ));
+  if (existing) return existing;
+
+  user.identities.push({
+    ...identityInput,
+    is_primary: (user.identities || []).length === 0,
+    status: 'approved',
+    submitted_at: new Date(),
+    reviewed_at: new Date()
+  });
+  if (!user.platform) user.platform = identityInput.platform;
+  if (!user.platform_id) user.platform_id = identityInput.nickname;
+  await user.save();
+  return user.identities[user.identities.length - 1];
 }
 
 function buildTransactionDocFromOwnership({ acquisitionType, actorId, targetId, item, pointsDelta, deliveryLink, occurredAt }) {
@@ -72,19 +228,47 @@ function buildTransactionDocFromOwnership({ acquisitionType, actorId, targetId, 
   return null;
 }
 
-async function findOrCreateUser(qq, platform, platformId) {
+async function findOrCreateUser(qq, platform, platformId, identityInput) {
   let user = null;
   if (qq) user = await User.findOne({ qq });
+  if (!user && identityInput?.nickname) {
+    user = await User.findOne({
+      identities: {
+        $elemMatch: {
+          role: identityInput.role,
+          platform: identityInput.platform,
+          nickname: identityInput.nickname,
+          ...(identityInput.uid ? { uid: identityInput.uid } : {})
+        }
+      }
+    });
+  }
   if (!user && platform && platformId) user = await User.findOne({ platform, platform_id: platformId });
   if (!user) {
-    const username = qq || platformId || `user_${Date.now()}`;
+    const username = await buildUniqueImportedUsername(qq || identityInput?.nickname || platformId);
     user = await User.create({
       username,
       password_hash: 'IMPORTED',
       qq: qq || undefined,
-      platform: platform || undefined,
-      platform_id: platformId || undefined
+      email: qq ? `${qq}@qq.com` : undefined,
+      email_verified_at: qq ? new Date() : undefined,
+      platform: identityInput?.platform || platform || undefined,
+      platform_id: identityInput?.nickname || platformId || undefined,
+      identities: identityInput ? [{
+        ...identityInput,
+        is_primary: true,
+        status: 'approved',
+        submitted_at: new Date(),
+        reviewed_at: new Date()
+      }] : []
     });
+  } else if (qq && !user.qq) {
+    user.qq = qq;
+    if (!user.email) {
+      user.email = `${qq}@qq.com`;
+      user.email_verified_at = new Date();
+    }
+    await user.save();
   }
   return user;
 }
@@ -261,13 +445,14 @@ exports.importAuthorizations = async (req, res) => {
         continue;
       }
 
-      const type1 = rec.acquisition_type_1 || rec.type1;
-      const id1 = rec.id1;
-      const qq1 = rec.qq1;
+      const type1 = getImportAcquisitionType(rec, '1');
+      const id1 = getImportDisplayId(rec, '1');
+      const qq1 = getImportQq(rec, '1');
       const points1 = Number(rec.points1 || 0);
       const delivery1 = rec.delivery_link_1 || '';
+      const identityInput1 = getImportIdentity(rec, '1');
 
-      if (!type1 || (!id1 && !qq1)) {
+      if (!type1 || (!id1 && !qq1 && !identityInput1?.nickname)) {
         errors.push({ index: i, record: rec, error: '缺少用户1的获取类型或ID/QQ' });
         continue;
       }
@@ -276,7 +461,8 @@ exports.importAuthorizations = async (req, res) => {
       const typeMap = { '自用': 'self', '已赞助': 'sponsor', '赞待': 'sponsor_pending', '赞助待定': 'sponsor_pending', '被赞助': 'sponsored' };
       const mappedType1 = typeMap[type1] || type1;
 
-      const user1 = await findOrCreateUser(qq1, null, id1);
+      const user1 = await findOrCreateUser(qq1, null, id1, identityInput1);
+      const identity1 = await ensureUserIdentity(user1, identityInput1);
 
       // Create ownership for user 1
       await Ownership.create({
@@ -286,6 +472,7 @@ exports.importAuthorizations = async (req, res) => {
         points_delta: points1,
         occurred_at: occurredAt,
         delivery_link: delivery1 || (mappedType1 === 'self' ? item.delivery_link : undefined),
+        ...buildOwnershipIdentityFields(identity1),
         active: true
       });
 
@@ -298,15 +485,17 @@ exports.importAuthorizations = async (req, res) => {
       }
 
       // Handle user 2 if present (for sponsor relationships)
-      const type2 = rec.acquisition_type_2 || rec.type2;
-      const id2 = rec.id2;
-      const qq2 = rec.qq2;
+      const type2 = getImportAcquisitionType(rec, '2');
+      const id2 = getImportDisplayId(rec, '2');
+      const qq2 = getImportQq(rec, '2');
       const points2 = Number(rec.points2 || 0);
       const delivery2 = rec.delivery_link_2 || '';
+      const identityInput2 = getImportIdentity(rec, '2');
 
-      if (type2 && (id2 || qq2)) {
+      if (type2 && (id2 || qq2 || identityInput2?.nickname)) {
         const mappedType2 = typeMap[type2] || type2;
-        const user2 = await findOrCreateUser(qq2, null, id2);
+        const user2 = await findOrCreateUser(qq2, null, id2, identityInput2);
+        const identity2 = await ensureUserIdentity(user2, identityInput2);
 
         await Ownership.create({
           user_id: user2._id,
@@ -316,6 +505,7 @@ exports.importAuthorizations = async (req, res) => {
           occurred_at: occurredAt,
           delivery_link: delivery2 || (mappedType2 === 'sponsored' ? item.delivery_link : undefined),
           source_user_id: mappedType2 === 'sponsored' ? user1._id : undefined,
+          ...buildOwnershipIdentityFields(identity2),
           active: true
         });
 
@@ -336,10 +526,11 @@ exports.importAuthorizations = async (req, res) => {
       }
 
       const transactionDocs = [];
-      const user2Id = type2 && (id2 || qq2) ? (await User.findOne({
+      const user2Id = type2 && (id2 || qq2 || identityInput2?.nickname) ? (await User.findOne({
         $or: [
           ...(qq2 ? [{ qq: qq2 }] : []),
-          ...(id2 ? [{ platform_id: id2 }] : [])
+          ...(id2 ? [{ platform_id: id2 }] : []),
+          ...(identityInput2?.nickname ? [{ 'identities.nickname': identityInput2.nickname }] : [])
         ]
       }).select('_id').lean())?._id : null;
 
@@ -354,9 +545,9 @@ exports.importAuthorizations = async (req, res) => {
       });
       if (tx1) transactionDocs.push(tx1);
 
-      if (type2 && (id2 || qq2)) {
+      if (type2 && (id2 || qq2 || identityInput2?.nickname)) {
         const mappedType2 = typeMap[type2] || type2;
-        const user2 = await findOrCreateUser(qq2, null, id2);
+        const user2 = await findOrCreateUser(qq2, null, id2, identityInput2);
         const tx2 = buildTransactionDocFromOwnership({
           acquisitionType: mappedType2,
           actorId: user2._id,

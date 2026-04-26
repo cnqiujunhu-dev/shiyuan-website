@@ -26,7 +26,9 @@
         <thead>
           <tr>
             <th>获取类型</th>
+            <th>领域</th>
             <th>圈名 ID</th>
+            <th>UID</th>
             <th>QQ</th>
             <th>积分</th>
             <th>发货链接</th>
@@ -38,7 +40,9 @@
         <tbody>
           <tr v-for="row in rows" :key="row._id">
             <td><span :class="['badge', typeBadgeClass(row.acquisition_type)]">{{ typeLabel(row.acquisition_type) }}</span></td>
-            <td>{{ row.user_id?.platform_id || row.user_id?.username || '-' }}</td>
+            <td>{{ row.identity_role || '-' }}</td>
+            <td>{{ row.identity_nickname || row.user_id?.platform_id || row.user_id?.username || '-' }}</td>
+            <td>{{ row.identity_uid || '-' }}</td>
             <td>{{ row.user_id?.qq || '-' }}</td>
             <td>{{ row.points_delta || 0 }}</td>
             <td class="link-cell">

@@ -20,8 +20,8 @@ export const useAuthStore = defineStore('auth', {
       localStorage.setItem('user', JSON.stringify(res.user))
       if (res.refreshToken) localStorage.setItem('refreshToken', res.refreshToken)
     },
-    async login(username, password) {
-      const res = await authAPI.login({ username, password })
+    async login(qq, code) {
+      const res = await authAPI.loginWithCode({ qq, code })
       if (res.token) {
         this.setSession(res)
         return { ok: true }

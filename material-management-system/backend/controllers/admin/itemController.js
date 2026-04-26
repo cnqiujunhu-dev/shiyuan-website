@@ -68,6 +68,20 @@ function normalizeStatus(value) {
   return map[raw] || 'on_sale';
 }
 
+function normalizeMaterialDomain(value) {
+  const raw = String(value || '').trim();
+  const map = {
+    文游: '文游类',
+    文游类: '文游类',
+    文游作者: '文游类',
+    美工: '美工美化类',
+    美化: '美工美化类',
+    美工美化: '美工美化类',
+    美工美化类: '美工美化类'
+  };
+  return map[raw] || '美工美化类';
+}
+
 function escapeCsv(value) {
   const text = value == null ? '' : String(value);
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
@@ -90,6 +104,7 @@ exports.createItem = async (req, res) => {
       artist,
       categories,
       topics,
+      material_domain,
       price,
       delivery_link,
       status,
@@ -107,6 +122,7 @@ exports.createItem = async (req, res) => {
       sku_code: sku_code || undefined,
       name,
       artist,
+      material_domain: normalizeMaterialDomain(material_domain),
       topics: parsedTopics,
       categories: parsedCategories,
       price: Number(price),
@@ -133,6 +149,7 @@ exports.updateItem = async (req, res) => {
       artist,
       categories,
       topics,
+      material_domain,
       price,
       delivery_link,
       status,
@@ -143,6 +160,7 @@ exports.updateItem = async (req, res) => {
     if (sku_code !== undefined) updates.sku_code = sku_code;
     if (name !== undefined) updates.name = name;
     if (artist !== undefined) updates.artist = artist;
+    if (material_domain !== undefined) updates.material_domain = normalizeMaterialDomain(material_domain);
     if (topics !== undefined) updates.topics = parseList(topics);
     if (categories !== undefined) updates.categories = parseList(categories);
     if (price !== undefined) updates.price = Number(price);
@@ -221,6 +239,7 @@ exports.importItems = async (req, res) => {
           sku_code: row.sku_code || undefined,
           name: row.name,
           artist: row.artist,
+          material_domain: normalizeMaterialDomain(row.material_domain || row.domain),
           topics: parseList(row.topics || row.topic),
           categories: parseList(row.categories || row.category),
           price: normalizedPrice,
@@ -285,12 +304,15 @@ exports.exportItemOwnerships = async (req, res) => {
       .sort({ occurred_at: -1 })
       .lean();
 
-    const headers = ['SKU编码', '素材名称', '获取类型', '圈名ID', 'QQ', '积分', '发货链接', '赞助方ID', '赞助方QQ', '被赞助方ID', '被赞助方QQ', '获取时间'];
+    const headers = ['SKU编码', '素材名称', '素材归类', '获取类型', '领域', '圈名ID', '文游UID', 'QQ', '积分', '发货链接', '赞助方ID', '赞助方QQ', '被赞助方ID', '被赞助方QQ', '获取时间'];
     const rows = ownerships.map(ownership => [
       item.sku_code || '',
       item.name || '',
+      item.material_domain || '',
       ownership.acquisition_type,
-      ownership.user_id?.platform_id || ownership.user_id?.username || '',
+      ownership.identity_role || '',
+      ownership.identity_nickname || ownership.user_id?.platform_id || ownership.user_id?.username || '',
+      ownership.identity_uid || '',
       ownership.user_id?.qq || '',
       ownership.points_delta ?? 0,
       ownership.delivery_link || '',
