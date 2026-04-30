@@ -51,6 +51,7 @@ const userSchema = new mongoose.Schema(
     annual_spend: { type: Number, default: 0 },
     transfer_remaining: { type: Number, default: 0 },
     buyback_remaining: { type: Number, default: 0 },
+    assisted_buyback_remaining: { type: Number, default: 0 },
     skip_queue_remaining: { type: Number, default: 0 },
     registration_status: {
       type: String,

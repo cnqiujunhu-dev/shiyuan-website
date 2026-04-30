@@ -1,53 +1,8 @@
 const Application = require('../models/Application');
-const Ownership = require('../models/Ownership');
-const User = require('../models/User');
 const logger = require('../config/logger');
 
 exports.submitBuyback = async (req, res) => {
-  const { ownership_id, reason } = req.body;
-  if (!ownership_id) {
-    return res.status(400).json({ message: '请提供要回购的素材记录 ID' });
-  }
-  try {
-    const user = await User.findById(req.user.id);
-    if (!user || user.buyback_remaining <= 0) {
-      return res.status(400).json({ message: '本年度回购次数已用完' });
-    }
-    // 验证该转让记录属于本人
-    const ownership = await Ownership.findOne({
-      _id: ownership_id,
-      user_id: req.user.id,
-      acquisition_type: 'transfer_out',
-      active: true
-    }).populate('item_id', 'name');
-    if (!ownership) {
-      return res.status(404).json({ message: '未找到可回购的转让记录' });
-    }
-    // 检查是否已有待审核的回购申请
-    const pending = await Application.findOne({
-      user_id: req.user.id,
-      type: 'buyback',
-      status: 'pending',
-      'payload.ownership_id': { $in: [ownership._id, String(ownership._id)] }
-    });
-    if (pending) {
-      return res.status(400).json({ message: '该素材已有待审核的回购申请' });
-    }
-    await Application.create({
-      type: 'buyback',
-      user_id: req.user.id,
-      payload: {
-        ownership_id: ownership._id,
-        item_id: ownership.item_id?._id,
-        item_name: ownership.item_id?.name,
-        reason: reason || ''
-      }
-    });
-    return res.json({ message: '回购申请已提交，等待管理员审核' });
-  } catch (err) {
-    logger.error('submitBuyback error', { message: err.message });
-    return res.status(500).json({ message: '服务器错误' });
-  }
+  return res.status(410).json({ message: '回购已改为管理员通过授权名单 Excel 直接导入，不再走申请审核' });
 };
 
 exports.getMyApplications = async (req, res) => {

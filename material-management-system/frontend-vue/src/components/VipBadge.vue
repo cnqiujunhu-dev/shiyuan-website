@@ -20,8 +20,6 @@ const levels = [
   { label: 'VIP1·铜', icon: '🥉' },
   { label: 'VIP2·银', icon: '🥈' },
   { label: 'VIP3·金', icon: '🥇' },
-  { label: 'VIP4·铂', icon: '💎' },
-  { label: 'VIP5·钻', icon: '👑' },
 ]
 
 const label = computed(() => levels[props.level]?.label ?? '普通')

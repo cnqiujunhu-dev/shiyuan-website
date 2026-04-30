@@ -1,11 +1,14 @@
-const IDENTITY_ROLES = ['文游作者', '美工美化', '小说作者'];
+const IDENTITY_ROLES = ['文游作者', '小说作者', '非重氪独立游戏作者', '美工'];
 const IDENTITY_PLATFORMS = ['全平台', '橙光', '易次元', '闪艺', '晋江', '番茄', '微博', '小红书', '抖音', '快手'];
 const ROLE_ALIASES = {
-  美工: '美工美化',
-  画师: '美工美化',
-  美化: '美工美化',
+  美工美化: '美工',
+  美工美化类: '美工',
+  画师: '美工',
+  美化: '美工',
   文游: '文游作者',
-  作者: '文游作者'
+  作者: '文游作者',
+  独立游戏作者: '非重氪独立游戏作者',
+  非重氪游戏作者: '非重氪独立游戏作者'
 };
 
 function normalizeRole(value) {
@@ -30,7 +33,7 @@ function getIdentityValidationMessage(identity) {
   if (!identity.role) return '请选择职业';
   if (!identity.platform) return '请选择平台';
   if (!identity.nickname) return '请输入圈名';
-  if (!IDENTITY_ROLES.includes(identity.role)) return '职业仅支持文游作者、美工美化、小说作者';
+  if (!IDENTITY_ROLES.includes(identity.role)) return '职业仅支持文游作者、小说作者、非重氪独立游戏作者、美工';
   if (!IDENTITY_PLATFORMS.includes(identity.platform)) return '平台选项不支持';
   if (identity.role.length > 30) return '职业长度不能超过 30 个字符';
   if (identity.platform.length > 30) return '平台长度不能超过 30 个字符';
@@ -84,7 +87,7 @@ function getPrimaryIdentity(user = {}) {
 
 function getPreferredRoleByMaterialDomain(materialDomain) {
   if (materialDomain === '文游类') return '文游作者';
-  if (materialDomain === '美工美化类') return '美工美化';
+  if (materialDomain === '美工美化类') return '美工';
   return '';
 }
 

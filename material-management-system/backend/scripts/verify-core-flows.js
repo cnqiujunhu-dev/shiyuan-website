@@ -23,6 +23,7 @@ const assetController = require('../controllers/assetController');
 const applicationController = require('../controllers/applicationController');
 const adminApplicationController = require('../controllers/admin/applicationController');
 const adminVipController = require('../controllers/admin/vipController');
+const adminTransactionController = require('../controllers/admin/transactionController');
 
 let replSet;
 
@@ -165,7 +166,7 @@ async function testQqVerificationRegistration() {
       body: {
         qq: '123456',
         identities: [
-          { role: '美工美化', platform: '易次元', nickname: 'verified_nick' },
+          { role: '美工', platform: '易次元', nickname: 'verified_nick' },
           { role: '小说作者', platform: '晋江', nickname: 'verified_writer' }
         ]
       }
@@ -183,7 +184,7 @@ async function testQqVerificationRegistration() {
     assert.equal(user.platform, '易次元', 'primary identity platform should be mirrored to legacy platform');
     assert.equal(user.platform_id, 'verified_nick', 'primary identity nickname should be mirrored to legacy platform id');
     assert.equal(user.identities.length, 2, 'verified registration should store submitted identities');
-    assert.equal(user.identities[0].role, '美工美化', 'primary identity role should be stored');
+    assert.equal(user.identities[0].role, '美工', 'primary identity role should be stored');
     assert.equal(user.identities[0].status, 'pending', 'primary identity should wait for registration review');
     assert.equal(user.identities[1].role, '小说作者', 'secondary identity role should be stored');
     assert.equal(user.identities[1].is_primary, false, 'secondary identity should not be primary');
@@ -326,7 +327,7 @@ async function testQqVerificationRegistration() {
       user: {},
       body: {
         qq: '654321',
-        identities: [{ role: '美工美化', platform: '橙光', nickname: 'reject_nick' }]
+        identities: [{ role: '美工', platform: '橙光', nickname: 'reject_nick' }]
       }
     });
     expectStatus(rejectRegisterResult, 201, 'submit registration for rejection');
@@ -366,8 +367,10 @@ async function testTransferAndBuyback() {
     username: 'transfer_from',
     qq: '10001',
     vip_level: 2,
+    points_total: 3000,
     transfer_remaining: 1,
-    buyback_remaining: 1,
+    buyback_remaining: 5,
+    assisted_buyback_remaining: 5,
     roles: ['user', 'vip']
   });
   const toUser = await createUser({ username: 'transfer_to', qq: '10002' });
@@ -384,7 +387,18 @@ async function testTransferAndBuyback() {
     user_id: fromUser._id,
     item_id: item._id,
     acquisition_type: 'self',
+    usage_field: '美工',
+    acquisition_method: '购买',
+    usage_purpose: '自用',
+    purchaser_user_id: fromUser._id,
+    purchaser_display_id: 'transfer_from',
+    purchaser_qq: '10001',
+    actual_user_id: fromUser._id,
+    actual_display_id: 'transfer_from',
+    actual_qq: '10001',
+    points_user_id: fromUser._id,
     points_delta: item.price,
+    annual_spend_delta: item.price,
     occurred_at: new Date('2026-01-01T00:00:00.000Z'),
     delivery_link: item.delivery_link,
     active: true
@@ -423,9 +437,14 @@ async function testTransferAndBuyback() {
   assert.equal(transferTransactions.length, 2, 'transfer should create two transactions');
   assert.ok(transferTransactions.some(t => t.type === 'transfer_out'), 'transfer_out transaction should exist');
   assert.ok(transferTransactions.some(t => t.type === 'transfer_in'), 'transfer_in transaction should exist');
+  assert.ok(transferTransactions.some(t => t.type === 'transfer_out' && t.points_change === -300), 'transfer_out should deduct points');
+  assert.ok(transferTransactions.some(t => t.type === 'transfer_in' && t.points_change === 300), 'transfer_in should add points');
 
   const fromAfterTransfer = await User.findById(fromUser._id).lean();
   assert.equal(fromAfterTransfer.transfer_remaining, 0, 'transfer should consume one transfer quota');
+  assert.equal(fromAfterTransfer.points_total, 2700, 'transfer should deduct transferor points');
+  const toAfterTransfer = await User.findById(toUser._id).lean();
+  assert.equal(toAfterTransfer.points_total, 300, 'transfer should add receiver points');
 
   const hiddenAssetsResult = await callController(assetController.getMyAssets, {
     user: fromUser,
@@ -438,64 +457,41 @@ async function testTransferAndBuyback() {
     user: fromUser,
     body: { ownership_id: objectId(transferOut), reason: 'verify buyback' }
   });
-  expectStatus(buybackResult, 200, 'submit buyback');
+  expectStatus(buybackResult, 410, 'buyback application is disabled');
 
-  const duplicateBuybackResult = await callController(applicationController.submitBuyback, {
-    user: fromUser,
-    body: { ownership_id: objectId(transferOut), reason: 'duplicate verify buyback' }
-  });
-  expectStatus(duplicateBuybackResult, 400, 'block duplicate pending buyback');
-
-  const application = await Application.findOne({
-    user_id: fromUser._id,
-    type: 'buyback',
-    status: 'pending'
-  }).lean();
-  assert.ok(application, 'pending buyback application should exist');
-
-  const approveResult = await callController(adminApplicationController.decideApplication, {
+  const assistedBuybackImport = await callController(adminTransactionController.importAuthorizations, {
     user: admin,
-    params: { id: objectId(application) },
-    body: { status: 'approved', remark: 'verified' }
+    body: [{
+      '素材 SKU': 'VERIFY-TRANSFER',
+      '使用领域': '美工',
+      '获取途径': '会员帮回购',
+      '用途': '自用',
+      '购买人 ID': 'transfer_from',
+      '购买人 QQ': '10001',
+      '实际使用人 ID': 'transfer_to',
+      '实际使用人 QQ': '10002',
+      '积分': '',
+      '发货链接': ''
+    }]
   });
-  expectStatus(approveResult, 200, 'approve buyback');
+  expectStatus(assistedBuybackImport, 200, 'import assisted buyback');
+  assert.equal(assistedBuybackImport.body.imported, 1, 'assisted buyback import should succeed');
 
-  const approvedApplication = await Application.findById(application._id).lean();
-  assert.equal(approvedApplication.status, 'approved', 'application should be approved after successful buyback');
-
-  const transferOutAfterBuyback = await Ownership.findById(transferOut._id).lean();
-  assert.equal(transferOutAfterBuyback.active, false, 'buyback should close original transfer_out');
-  assert.notEqual(
-    objectId(transferOutAfterBuyback.replaced_by),
-    objectId(receiverOwnership),
-    'closed transfer_out should reference the recovered owner record'
-  );
-
-  const receiverAfterBuyback = await Ownership.findById(receiverOwnership._id).lean();
-  assert.equal(receiverAfterBuyback.active, false, 'buyback should deactivate receiver ownership');
-
-  const recoveredOwnership = await Ownership.findById(transferOutAfterBuyback.replaced_by).lean();
-  assert.ok(recoveredOwnership, 'buyback should create recovered ownership');
-  assert.equal(objectId(recoveredOwnership.user_id), objectId(fromUser), 'recovered ownership should belong to applicant');
-  assert.equal(recoveredOwnership.acquisition_type, 'self', 'recovered ownership should use self type');
-  assert.equal(recoveredOwnership.transfer_locked, true, 'buyback ownership should be transfer locked');
-  assert.equal(recoveredOwnership.active, true, 'recovered ownership should be active');
-
-  const fromAfterBuyback = await User.findById(fromUser._id).lean();
-  assert.equal(fromAfterBuyback.buyback_remaining, 0, 'buyback should consume one buyback quota');
-
-  await User.findByIdAndUpdate(fromUser._id, { buyback_remaining: 1 });
-  const postApprovalBuybackResult = await callController(applicationController.submitBuyback, {
-    user: fromUser,
-    body: { ownership_id: objectId(transferOut), reason: 'after approval' }
-  });
-  expectStatus(postApprovalBuybackResult, 404, 'closed transfer_out cannot be submitted for buyback again');
-
-  const buybackTransactions = await Transaction.find({
+  const assistedOwnership = await Ownership.findOne({
     item_id: item._id,
-    'metadata.buyback': true
+    acquisition_method: '会员帮回购',
+    actual_user_id: toUser._id
   }).lean();
-  assert.equal(buybackTransactions.length, 2, 'approved buyback should create two buyback transactions');
+  assert.ok(assistedOwnership, 'assisted buyback ownership should exist');
+  assert.equal(assistedOwnership.points_delta, 300, 'assisted buyback actual user gets original-price points');
+  assert.equal(assistedOwnership.annual_spend_delta, 300, 'assisted buyback actual user gets annual spend');
+
+  const fromAfterBuybackImport = await User.findById(fromUser._id).lean();
+  assert.equal(fromAfterBuybackImport.buyback_remaining, 4, 'assisted buyback should consume purchaser buyback quota');
+  assert.equal(fromAfterBuybackImport.assisted_buyback_remaining, 4, 'assisted buyback should consume assisted quota');
+  const toAfterBuybackImport = await User.findById(toUser._id).lean();
+  assert.equal(toAfterBuybackImport.points_total, 600, 'assisted buyback should add actual user points');
+  assert.equal(toAfterBuybackImport.annual_spend, 300, 'assisted buyback should add actual user annual spend');
 }
 
 async function testVipImportAndYearlyWorkflows() {
@@ -537,8 +533,9 @@ async function testVipImportAndYearlyWorkflows() {
   assert.equal(importedUser.annual_spend, 120);
   assert.equal(importedUser.platform, '易次元');
   assert.equal(importedUser.platform_id, 'vip-import-platform');
-  assert.equal(importedUser.transfer_remaining, 2);
-  assert.equal(importedUser.buyback_remaining, 2);
+  assert.equal(importedUser.transfer_remaining, 10);
+  assert.equal(importedUser.buyback_remaining, 8);
+  assert.equal(importedUser.assisted_buyback_remaining, 8);
   assert.deepEqual(importedUser.roles.includes('vip'), true, 'imported VIP should have vip role');
 
   const vipSearchResult = await callController(adminVipController.getVipCustomers, {
@@ -551,6 +548,7 @@ async function testVipImportAndYearlyWorkflows() {
   await User.findByIdAndUpdate(importedUser._id, {
     transfer_remaining: 0,
     buyback_remaining: 0,
+    assisted_buyback_remaining: 0,
     skip_queue_remaining: 9
   });
   const resetCountersResult = await callController(adminVipController.resetCounters, {
@@ -559,8 +557,9 @@ async function testVipImportAndYearlyWorkflows() {
   });
   expectStatus(resetCountersResult, 200, 'reset VIP counters');
   const countersAfterReset = await User.findById(importedUser._id).lean();
-  assert.equal(countersAfterReset.transfer_remaining, 2, 'counter reset should restore transfer quota');
-  assert.equal(countersAfterReset.buyback_remaining, 2, 'counter reset should restore buyback quota');
+  assert.equal(countersAfterReset.transfer_remaining, 10, 'counter reset should restore transfer quota');
+  assert.equal(countersAfterReset.buyback_remaining, 8, 'counter reset should restore buyback quota');
+  assert.equal(countersAfterReset.assisted_buyback_remaining, 8, 'counter reset should restore assisted buyback quota');
   assert.equal(countersAfterReset.skip_queue_remaining, 0, 'counter reset should restore skip queue quota');
 
   const blockedDowngradeResult = await callController(adminVipController.updateVipCustomer, {
@@ -579,30 +578,31 @@ async function testVipImportAndYearlyWorkflows() {
   expectStatus(downgradeResult, 200, 'manual downgrade with zero annual spend');
   const downgradedUser = await User.findById(importedUser._id).lean();
   assert.equal(downgradedUser.vip_level, 2);
-  assert.equal(downgradedUser.transfer_remaining, 1);
-  assert.equal(downgradedUser.buyback_remaining, 1);
+  assert.equal(downgradedUser.transfer_remaining, 5);
+  assert.equal(downgradedUser.buyback_remaining, 5);
+  assert.equal(downgradedUser.assisted_buyback_remaining, 5);
   assert.equal(downgradedUser.roles.includes('vip'), true);
 
   const positiveSpendUser = await createUser({
     username: 'positive_spend_vip',
     qq: '77770001',
-    vip_level: 5,
+    vip_level: 3,
     points_total: 20000,
     annual_spend: 100,
-    transfer_remaining: 6,
-    buyback_remaining: 3,
-    skip_queue_remaining: 6,
+    transfer_remaining: 10,
+    buyback_remaining: 8,
+    assisted_buyback_remaining: 8,
     roles: ['user', 'vip']
   });
   const zeroSpendUser = await createUser({
     username: 'zero_spend_vip',
     qq: '77770002',
-    vip_level: 4,
+    vip_level: 2,
     points_total: 10000,
     annual_spend: 0,
-    transfer_remaining: 3,
-    buyback_remaining: 2,
-    skip_queue_remaining: 3,
+    transfer_remaining: 5,
+    buyback_remaining: 5,
+    assisted_buyback_remaining: 5,
     roles: ['user', 'vip']
   });
 
@@ -615,12 +615,12 @@ async function testVipImportAndYearlyWorkflows() {
 
   const positiveSpendAfterReset = await User.findById(positiveSpendUser._id).lean();
   assert.equal(positiveSpendAfterReset.annual_spend, 0, 'annual reset should clear positive annual spend');
-  assert.equal(positiveSpendAfterReset.vip_level, 5, 'annual reset should preserve VIP level for manual review');
+  assert.equal(positiveSpendAfterReset.vip_level, 3, 'annual reset should preserve VIP level for manual review');
   assert.equal(positiveSpendAfterReset.roles.includes('vip'), true, 'annual reset should preserve vip role');
 
   const zeroSpendAfterReset = await User.findById(zeroSpendUser._id).lean();
   assert.equal(zeroSpendAfterReset.annual_spend, 0, 'annual reset should keep zero annual spend at zero');
-  assert.equal(zeroSpendAfterReset.vip_level, 4, 'annual reset should not perform the manual downgrade step');
+  assert.equal(zeroSpendAfterReset.vip_level, 2, 'annual reset should not perform the manual downgrade step');
   assert.equal(zeroSpendAfterReset.roles.includes('vip'), true, 'annual reset should preserve vip role');
 
   const removeVipResult = await callController(adminVipController.updateVipCustomer, {
@@ -633,6 +633,7 @@ async function testVipImportAndYearlyWorkflows() {
   assert.equal(regularUser.vip_level, 0);
   assert.equal(regularUser.transfer_remaining, 0);
   assert.equal(regularUser.buyback_remaining, 0);
+  assert.equal(regularUser.assisted_buyback_remaining, 0);
   assert.equal(regularUser.skip_queue_remaining, 0);
   assert.equal(regularUser.roles.includes('vip'), false, 'manual downgrade to 0 should remove vip role');
 }

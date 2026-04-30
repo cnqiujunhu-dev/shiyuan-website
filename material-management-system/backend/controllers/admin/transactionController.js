@@ -8,6 +8,10 @@ const { syncUserVip } = require('../../services/vipService');
 const auditService = require('../../services/auditService');
 const logger = require('../../config/logger');
 const {
+  parseRecordsFromRequest,
+  importAuthorizationRows
+} = require('../../services/authorizationImportService');
+const {
   normalizeIdentity,
   getIdentityValidationMessage,
   serializeIdentities
@@ -573,6 +577,45 @@ exports.importAuthorizations = async (req, res) => {
   await auditService.log(req.user.id, 'import_authorizations', 'Ownership', null, null, { imported: imported.length, failed: errors.length }, req);
   logger.info('Authorizations imported', { imported: imported.length, failed: errors.length });
   return res.json({ imported: imported.length, failed: errors.length, errors });
+};
+
+// Confirmed 2026-04-30 authorization-list import. Kept after the legacy importer so
+// this implementation is the exported handler used by the route.
+exports.importAuthorizations = async (req, res) => {
+  let records;
+  try {
+    records = parseRecordsFromRequest(req);
+  } catch (err) {
+    return res.status(400).json({ message: '授权名单解析失败', error: err.message });
+  }
+
+  if (!Array.isArray(records) || records.length === 0) {
+    return res.status(400).json({ message: '请提供有效的授权名单记录，支持 Excel .xlsx 上传或 JSON 数组' });
+  }
+
+  try {
+    const { imported, errors } = await importAuthorizationRows(records);
+    await auditService.log(
+      req.user.id,
+      'import_authorizations_confirmed',
+      'Ownership',
+      null,
+      null,
+      { imported: imported.length, failed: errors.length },
+      req
+    );
+    logger.info('Confirmed authorization list imported', { imported: imported.length, failed: errors.length });
+    return res.json({
+      message: `成功导入 ${imported.length} 条，失败 ${errors.length} 条`,
+      imported: imported.length,
+      failed: errors.length,
+      rows: imported,
+      errors
+    });
+  } catch (err) {
+    logger.error('importAuthorizations confirmed error', { message: err.message });
+    return res.status(500).json({ message: '服务器错误' });
+  }
 };
 
 exports.getTransactions = async (req, res) => {

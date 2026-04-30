@@ -7,6 +7,12 @@ const User = require('../../models/User');
 const { syncUserVip } = require('../../services/vipService');
 const logger = require('../../config/logger');
 const { normalizePublicUrl, normalizeItem } = require('../../utils/publicUrl');
+const {
+  normalizeUsageField,
+  normalizeAcquisitionMethod,
+  normalizeUsagePurpose,
+  deriveLegacyAcquisitionType
+} = require('../../services/authorizationRules');
 
 const uploadDir = path.join(process.env.UPLOAD_DIR || 'uploads', 'items');
 fs.mkdirSync(uploadDir, { recursive: true });
@@ -104,7 +110,6 @@ exports.createItem = async (req, res) => {
       artist,
       categories,
       topics,
-      material_domain,
       price,
       delivery_link,
       status,
@@ -122,7 +127,6 @@ exports.createItem = async (req, res) => {
       sku_code: sku_code || undefined,
       name,
       artist,
-      material_domain: normalizeMaterialDomain(material_domain),
       topics: parsedTopics,
       categories: parsedCategories,
       price: Number(price),
@@ -149,7 +153,6 @@ exports.updateItem = async (req, res) => {
       artist,
       categories,
       topics,
-      material_domain,
       price,
       delivery_link,
       status,
@@ -160,7 +163,6 @@ exports.updateItem = async (req, res) => {
     if (sku_code !== undefined) updates.sku_code = sku_code;
     if (name !== undefined) updates.name = name;
     if (artist !== undefined) updates.artist = artist;
-    if (material_domain !== undefined) updates.material_domain = normalizeMaterialDomain(material_domain);
     if (topics !== undefined) updates.topics = parseList(topics);
     if (categories !== undefined) updates.categories = parseList(categories);
     if (price !== undefined) updates.price = Number(price);
@@ -239,7 +241,6 @@ exports.importItems = async (req, res) => {
           sku_code: row.sku_code || undefined,
           name: row.name,
           artist: row.artist,
-          material_domain: normalizeMaterialDomain(row.material_domain || row.domain),
           topics: parseList(row.topics || row.topic),
           categories: parseList(row.categories || row.category),
           price: normalizedPrice,
@@ -274,6 +275,9 @@ exports.getItemOwnerships = async (req, res) => {
       .populate('user_id', 'username qq platform platform_id')
       .populate('source_user_id', 'username qq platform_id')
       .populate('target_user_id', 'username qq platform_id')
+      .populate('purchaser_user_id', 'username qq platform platform_id')
+      .populate('actual_user_id', 'username qq platform platform_id')
+      .populate('points_user_id', 'username qq platform platform_id')
       .sort({ occurred_at: -1 })
       .skip((pageNum - 1) * limitNum)
       .limit(limitNum)
@@ -301,25 +305,41 @@ exports.exportItemOwnerships = async (req, res) => {
       .populate('user_id', 'username qq platform platform_id')
       .populate('source_user_id', 'username qq platform_id')
       .populate('target_user_id', 'username qq platform_id')
+      .populate('purchaser_user_id', 'username qq platform platform_id')
+      .populate('actual_user_id', 'username qq platform platform_id')
       .sort({ occurred_at: -1 })
       .lean();
 
-    const headers = ['SKU编码', '素材名称', '素材归类', '获取类型', '领域', '圈名ID', '文游UID', 'QQ', '积分', '发货链接', '赞助方ID', '赞助方QQ', '被赞助方ID', '被赞助方QQ', '获取时间'];
+    const headers = [
+      '素材 SKU',
+      '素材名称',
+      '使用领域',
+      '获取途径',
+      '用途',
+      '购买人 ID',
+      '购买人 QQ',
+      '实际使用人 ID',
+      '实际使用人 QQ',
+      '积分',
+      '年度消费',
+      '发货链接',
+      '备注',
+      '获取时间'
+    ];
     const rows = ownerships.map(ownership => [
       item.sku_code || '',
       item.name || '',
-      item.material_domain || '',
-      ownership.acquisition_type,
-      ownership.identity_role || '',
-      ownership.identity_nickname || ownership.user_id?.platform_id || ownership.user_id?.username || '',
-      ownership.identity_uid || '',
-      ownership.user_id?.qq || '',
+      ownership.usage_field || ownership.identity_role || '',
+      ownership.acquisition_method || ownership.acquisition_type,
+      ownership.usage_purpose || '',
+      ownership.purchaser_display_id || ownership.purchaser_user_id?.platform_id || ownership.purchaser_user_id?.username || '',
+      ownership.purchaser_qq || ownership.purchaser_user_id?.qq || '',
+      ownership.actual_display_id || ownership.actual_user_id?.platform_id || ownership.actual_user_id?.username || '',
+      ownership.actual_qq || ownership.actual_user_id?.qq || '',
       ownership.points_delta ?? 0,
+      ownership.annual_spend_delta ?? 0,
       ownership.delivery_link || '',
-      ownership.source_user_id?.platform_id || ownership.source_user_id?.username || '',
-      ownership.source_user_id?.qq || '',
-      ownership.target_user_id?.platform_id || ownership.target_user_id?.username || '',
-      ownership.target_user_id?.qq || '',
+      ownership.notes || '',
       ownership.occurred_at ? new Date(ownership.occurred_at).toISOString() : ''
     ]);
     const csv = [headers, ...rows].map(row => row.map(escapeCsv).join(',')).join('\r\n');
@@ -334,7 +354,16 @@ exports.exportItemOwnerships = async (req, res) => {
 
 exports.updateItemOwnership = async (req, res) => {
   const { id, ownershipId } = req.params;
-  const { acquisition_type, points_delta, delivery_link } = req.body;
+  const {
+    acquisition_type,
+    usage_field,
+    acquisition_method,
+    usage_purpose,
+    points_delta,
+    annual_spend_delta,
+    delivery_link,
+    notes
+  } = req.body;
   try {
     const ownership = await Ownership.findOne({ _id: ownershipId, item_id: id, active: true });
     if (!ownership) return res.status(404).json({ message: '授权记录不存在' });
@@ -347,6 +376,27 @@ exports.updateItemOwnership = async (req, res) => {
       }
       updates.acquisition_type = acquisition_type;
     }
+    if (usage_field !== undefined) {
+      const normalized = normalizeUsageField(usage_field);
+      if (!normalized) return res.status(400).json({ message: '使用领域不支持该值' });
+      updates.usage_field = normalized;
+      updates.identity_role = normalized;
+    }
+    if (acquisition_method !== undefined) {
+      const normalized = normalizeAcquisitionMethod(acquisition_method, '');
+      if (!normalized) return res.status(400).json({ message: '获取途径不支持该值' });
+      updates.acquisition_method = normalized;
+    }
+    if (usage_purpose !== undefined) {
+      const normalized = normalizeUsagePurpose(usage_purpose, '');
+      if (!normalized) return res.status(400).json({ message: '用途不支持该值' });
+      updates.usage_purpose = normalized;
+    }
+    const nextMethod = updates.acquisition_method || ownership.acquisition_method;
+    const nextPurpose = updates.usage_purpose || ownership.usage_purpose;
+    if (nextMethod && nextPurpose && acquisition_type === undefined) {
+      updates.acquisition_type = deriveLegacyAcquisitionType(nextMethod, nextPurpose);
+    }
     let pointsDeltaChange = 0;
     if (points_delta !== undefined) {
       const nextPoints = Number(points_delta);
@@ -354,27 +404,38 @@ exports.updateItemOwnership = async (req, res) => {
       pointsDeltaChange = nextPoints - (Number(ownership.points_delta) || 0);
       updates.points_delta = nextPoints;
     }
+    let annualSpendDeltaChange = 0;
+    if (annual_spend_delta !== undefined) {
+      const nextAnnualSpend = Number(annual_spend_delta);
+      if (Number.isNaN(nextAnnualSpend)) return res.status(400).json({ message: '年度消费不是有效数字' });
+      annualSpendDeltaChange = nextAnnualSpend - (Number(ownership.annual_spend_delta) || 0);
+      updates.annual_spend_delta = nextAnnualSpend;
+    }
     if (delivery_link !== undefined) updates.delivery_link = delivery_link;
+    if (notes !== undefined) updates.notes = notes;
 
     const updated = await Ownership.findByIdAndUpdate(ownership._id, updates, { new: true })
       .populate('user_id', 'username qq platform platform_id')
       .populate('source_user_id', 'username qq platform_id')
       .populate('target_user_id', 'username qq platform_id')
+      .populate('purchaser_user_id', 'username qq platform platform_id')
+      .populate('actual_user_id', 'username qq platform platform_id')
       .lean();
 
-    if (pointsDeltaChange !== 0 && ownership.user_id) {
-      await User.findByIdAndUpdate(ownership.user_id, {
-        $inc: { points_total: pointsDeltaChange, annual_spend: pointsDeltaChange }
+    const accountingUserId = ownership.points_user_id || ownership.user_id;
+    if ((pointsDeltaChange !== 0 || annualSpendDeltaChange !== 0) && accountingUserId) {
+      await User.findByIdAndUpdate(accountingUserId, {
+        $inc: { points_total: pointsDeltaChange, annual_spend: annualSpendDeltaChange }
       });
       await User.updateOne(
-        { _id: ownership.user_id, points_total: { $lt: 0 } },
+        { _id: accountingUserId, points_total: { $lt: 0 } },
         { $set: { points_total: 0 } }
       );
       await User.updateOne(
-        { _id: ownership.user_id, annual_spend: { $lt: 0 } },
+        { _id: accountingUserId, annual_spend: { $lt: 0 } },
         { $set: { annual_spend: 0 } }
       );
-      await syncUserVip(ownership.user_id);
+      await syncUserVip(accountingUserId);
     }
 
     logger.info('Item ownership updated', { itemId: id, ownershipId });

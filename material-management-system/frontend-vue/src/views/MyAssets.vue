@@ -8,11 +8,11 @@
     <div class="info-grid" v-if="userStore.summary">
       <div class="info-card">
         <div class="info-card-label">累计积分</div>
-        <div class="info-card-value text-primary">{{ (userStore.summary.total_points || 0).toLocaleString() }}</div>
+        <div class="info-card-value text-primary">{{ (userStore.summary.points_total || userStore.summary.total_points || 0).toLocaleString() }}</div>
       </div>
       <div class="info-card" v-if="auth.vipLevel >= 2">
         <div class="info-card-label">剩余转让次数</div>
-        <div class="info-card-value">{{ userStore.summary.transfer_quota_remaining ?? '-' }}</div>
+        <div class="info-card-value">{{ userStore.summary.transfer_remaining ?? userStore.summary.transfer_quota_remaining ?? '-' }}</div>
         <div class="info-card-sub">年度配额</div>
       </div>
       <div class="info-card">
@@ -83,14 +83,14 @@
           </div>
 
           <div class="alert alert-warning" style="margin-bottom:16px;">
-            转让后不可撤销，素材将从您的账户移出，请谨慎操作！
+            转让后素材将从您的账户移出，接收方无需提前注册。
           </div>
 
           <div v-if="!transferModal.confirming">
             <p class="text-sm text-muted mb-3">请填写接转方信息：</p>
             <div class="form-group">
-              <label class="form-label">接转方 ID</label>
-              <input v-model="transferForm.target_id" type="text" class="form-input" placeholder="用户 ID" />
+              <label class="form-label">接转方圈名 ID</label>
+              <input v-model="transferForm.target_id" type="text" class="form-input" placeholder="圈名 ID" />
             </div>
             <div class="form-group">
               <label class="form-label">接转方 QQ</label>
@@ -133,8 +133,8 @@
 
           <p class="text-sm text-muted mb-3">请填写被赞助方信息：</p>
           <div class="form-group">
-            <label class="form-label">被赞助方 ID</label>
-            <input v-model="registerForm.target_id" type="text" class="form-input" placeholder="用户 ID" />
+            <label class="form-label">被赞助方圈名 ID</label>
+            <input v-model="registerForm.target_id" type="text" class="form-input" placeholder="圈名 ID" />
           </div>
           <div class="form-group">
             <label class="form-label">被赞助方 QQ</label>

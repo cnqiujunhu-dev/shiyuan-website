@@ -4,6 +4,8 @@ const Transaction = require('../../models/Transaction');
 const User = require('../../models/User');
 const auditService = require('../../services/auditService');
 const logger = require('../../config/logger');
+const { getTransferPoints } = require('../../services/authorizationRules');
+const { syncUserVip } = require('../../services/vipService');
 
 function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -70,8 +72,8 @@ exports.getTransfers = async (req, res) => {
       from_qq: ownership.user_id?.qq || '',
       from_vip_level: ownership.user_id?.vip_level || 0,
       to_platform: ownership.target_user_id?.platform || '',
-      to_id: ownership.target_user_id?.platform_id || ownership.target_user_id?.username || '',
-      to_qq: ownership.target_user_id?.qq || '',
+      to_id: ownership.target_user_id?.platform_id || ownership.actual_display_id || ownership.target_user_id?.username || '',
+      to_qq: ownership.target_user_id?.qq || ownership.actual_qq || '',
       rolled_back: ownership.active === false
     }));
     return res.json({ total, page: pageNum, transfers });
@@ -126,18 +128,19 @@ exports.rollbackTransfer = async (req, res) => {
         ]
       }, { session });
 
+      const transferPoints = Math.abs(Number(receiverOwnership.points_delta || getTransferPoints(receiverOwnership, null)) || 0);
       if (transferOutOwnership.user_id) {
         await User.findByIdAndUpdate(
           transferOutOwnership.user_id,
-          { $inc: { transfer_remaining: 1 } },
+          { $inc: { transfer_remaining: 1, points_total: transferPoints } },
           { session }
         );
       }
 
-      if (receiverOwnership.user_id && receiverOwnership.points_delta) {
+      if (receiverOwnership.user_id && transferPoints) {
         await User.findByIdAndUpdate(
           receiverOwnership.user_id,
-          { $inc: { points_total: -receiverOwnership.points_delta } },
+          { $inc: { points_total: -transferPoints } },
           { session }
         );
         // 确保积分不为负
@@ -157,6 +160,8 @@ exports.rollbackTransfer = async (req, res) => {
     }
 
     await auditService.log(req.user.id, 'rollback_transfer', 'Ownership', id, null, { rollback: true }, req);
+    if (transferOutOwnership.user_id) await syncUserVip(transferOutOwnership.user_id);
+    if (receiverOwnership.user_id) await syncUserVip(receiverOwnership.user_id);
     logger.info('Transfer rolled back', { ownershipId: id });
     return res.json({ message: '回滚成功' });
   } catch (err) {

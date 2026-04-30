@@ -24,8 +24,6 @@
           <option value="1">VIP1</option>
           <option value="2">VIP2</option>
           <option value="3">VIP3</option>
-          <option value="4">VIP4</option>
-          <option value="5">VIP5</option>
         </select>
       </div>
       <button class="btn btn-primary" @click="doSearch">搜索</button>
@@ -49,15 +47,16 @@
             <th style="padding:12px 16px;text-align:left;font-weight:600;font-size:13px;color:var(--text-secondary,#6b7280);">年度消费</th>
             <th style="padding:12px 16px;text-align:left;font-weight:600;font-size:13px;color:var(--text-secondary,#6b7280);">剩余转让</th>
             <th style="padding:12px 16px;text-align:left;font-weight:600;font-size:13px;color:var(--text-secondary,#6b7280);">剩余回购</th>
+            <th style="padding:12px 16px;text-align:left;font-weight:600;font-size:13px;color:var(--text-secondary,#6b7280);">剩余帮回购</th>
             <th style="padding:12px 16px;text-align:left;font-weight:600;font-size:13px;color:var(--text-secondary,#6b7280);">操作</th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="loading">
-            <td colspan="9" class="table-loading">加载中...</td>
+            <td colspan="10" class="table-loading">加载中...</td>
           </tr>
           <tr v-else-if="rows.length === 0">
-            <td colspan="9" class="table-empty">暂无 VIP 顾客数据</td>
+            <td colspan="10" class="table-empty">暂无 VIP 顾客数据</td>
           </tr>
           <template v-else>
             <tr v-for="row in rows" :key="row._id" class="table-row-hover">
@@ -73,6 +72,7 @@
               <td style="padding:10px 16px;">{{ row.annual_spend != null ? row.annual_spend + ' pts' : '—' }}</td>
               <td style="padding:10px 16px;">{{ row.transfer_remaining ?? '—' }}</td>
               <td style="padding:10px 16px;">{{ row.buyback_remaining ?? '—' }}</td>
+              <td style="padding:10px 16px;">{{ row.assisted_buyback_remaining ?? '—' }}</td>
               <td style="padding:10px 16px;">
                 <button class="btn btn-sm btn-secondary" @click="openEdit(row)">编辑</button>
               </td>
@@ -113,8 +113,6 @@
                 <option :value="1">VIP1</option>
                 <option :value="2">VIP2</option>
                 <option :value="3">VIP3</option>
-                <option :value="4">VIP4</option>
-                <option :value="5">VIP5</option>
               </select>
             </div>
             <div class="form-group">
@@ -128,6 +126,10 @@
             <div class="form-group">
               <label class="form-label">剩余回购次数</label>
               <input v-model.number="editModal.form.buyback_remaining" type="number" min="0" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">剩余帮回购次数</label>
+              <input v-model.number="editModal.form.assisted_buyback_remaining" type="number" min="0" class="form-input" />
             </div>
           </div>
         </div>
@@ -229,7 +231,18 @@ function resetSearch() { search.value = { q: '', vip_level: '' }; page.value = 1
 function changePage(p) { if (p < 1 || p > totalPages.value) return; page.value = p; fetchData() }
 
 // ── Edit Modal ────────────────────────────────────────────────────────────────
-const editModal = ref({ show: false, row: null, loading: false, form: { vip_level: 0, points_total: 0, transfer_remaining: 0, buyback_remaining: 0 } })
+const editModal = ref({
+  show: false,
+  row: null,
+  loading: false,
+  form: {
+    vip_level: 0,
+    points_total: 0,
+    transfer_remaining: 0,
+    buyback_remaining: 0,
+    assisted_buyback_remaining: 0
+  }
+})
 
 function openEdit(row) {
   editModal.value = {
@@ -240,7 +253,8 @@ function openEdit(row) {
       vip_level: row.vip_level ?? 0,
       points_total: row.points_total ?? 0,
       transfer_remaining: row.transfer_remaining ?? 0,
-      buyback_remaining: row.buyback_remaining ?? 0
+      buyback_remaining: row.buyback_remaining ?? 0,
+      assisted_buyback_remaining: row.assisted_buyback_remaining ?? 0
     }
   }
 }

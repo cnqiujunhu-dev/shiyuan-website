@@ -79,9 +79,8 @@
           <!-- 排队限购标记 -->
           <div v-if="item.queue_enabled" class="badge badge-default" style="margin-bottom:6px;font-size:0.72rem;">限量排队</div>
 
-          <!-- 自购按钮（普通商品） -->
+          <!-- 自购按钮 -->
           <button
-            v-if="!item.queue_enabled"
             class="btn btn-primary btn-sm"
             style="width:100%;margin-bottom:6px;"
             :disabled="item.priority_only && auth.vipLevel < 1"
@@ -89,19 +88,6 @@
           >
             <span v-if="item.priority_only && auth.vipLevel < 1">VIP 专属</span>
             <span v-else>立即购买</span>
-          </button>
-
-          <!-- 插队购买按钮（限购商品） -->
-          <button
-            v-if="item.queue_enabled"
-            class="btn btn-primary btn-sm"
-            style="width:100%;margin-bottom:6px;"
-            :disabled="auth.vipLevel < 4 || skipQueueRemaining <= 0"
-            @click="doBuyItem(item, true)"
-          >
-            <span v-if="auth.vipLevel < 4">需 VIP4+</span>
-            <span v-else-if="skipQueueRemaining > 0">插队购买（剩余 {{ skipQueueRemaining }} 次）</span>
-            <span v-else>插队次数已用完</span>
           </button>
 
           <button
@@ -135,8 +121,8 @@
           <div v-if="!sponsorModal.confirming">
             <p class="text-sm text-muted mb-3">请填写被赞助方信息（留空则创建赞助待定）：</p>
             <div class="form-group">
-              <label class="form-label">被赞助方 ID</label>
-              <input v-model="sponsorForm.target_id" type="text" class="form-input" placeholder="用户 ID（可选）" />
+              <label class="form-label">被赞助方圈名 ID</label>
+              <input v-model="sponsorForm.target_id" type="text" class="form-input" placeholder="圈名 ID（可选）" />
             </div>
             <div class="form-group">
               <label class="form-label">被赞助方 QQ</label>
@@ -173,7 +159,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, inject, onMounted, computed } from 'vue'
+import { ref, reactive, inject, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth.js'
 import { useUserStore } from '@/stores/user.js'
 import { shopAPI, assetsAPI } from '@/api/index.js'
@@ -197,11 +183,6 @@ const sponsorModal = reactive({ visible: false, item: null, confirming: false })
 const sponsorForm = reactive({ target_id: '', target_qq: '' })
 const sponsorError = ref('')
 const sponsorLoading = ref(false)
-const skipQueueRemaining = computed(() => (
-  userStore.summary?.skip_queue_remaining ??
-  auth.user?.skip_queue_remaining ??
-  0
-))
 
 function statusLabel(status) {
   if (status === 'completed') return '结车'
@@ -234,11 +215,9 @@ function resetFilters() {
   loadItems(1)
 }
 
-async function doBuyItem(item, isSkipQueue = false) {
+async function doBuyItem(item) {
   try {
-    const res = isSkipQueue
-      ? await shopAPI.skipQueueBuy(item._id || item.id)
-      : await shopAPI.buyItem(item._id || item.id)
+    const res = await shopAPI.buyItem(item._id || item.id)
     if (res.message && !res.error) {
       if (auth.isLoggedIn) {
         await userStore.fetchSummary()

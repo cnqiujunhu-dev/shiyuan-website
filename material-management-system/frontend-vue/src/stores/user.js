@@ -12,6 +12,7 @@ function normalizeSummary(payload = {}) {
     transfer_quota_remaining: payload.transfer_quota_remaining ?? payload.transfer_remaining ?? 0,
     buyback_remaining: payload.buyback_remaining ?? payload.repurchase_quota_remaining ?? 0,
     repurchase_quota_remaining: payload.repurchase_quota_remaining ?? payload.buyback_remaining ?? 0,
+    assisted_buyback_remaining: payload.assisted_buyback_remaining ?? 0,
     skip_queue_remaining: payload.skip_queue_remaining ?? payload.free_grab_remaining ?? 0,
     free_grab_remaining: payload.free_grab_remaining ?? payload.skip_queue_remaining ?? 0,
   }

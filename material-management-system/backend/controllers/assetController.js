@@ -7,6 +7,16 @@ const { syncUserVip } = require('../services/vipService');
 const logger = require('../config/logger');
 const { normalizeItem } = require('../utils/publicUrl');
 const { selectIdentityForMaterial, buildOwnershipIdentityFields } = require('../utils/identity');
+const {
+  getTransferPoints,
+  isTransferableOwnership,
+  resolvePointsAndSpend,
+  shouldHaveDeliveryLink
+} = require('../services/authorizationRules');
+const {
+  resolveUserSnapshot,
+  getUserDisplayId
+} = require('../services/authorizationImportService');
 
 function buildStoredOwnershipIdentityFields(ownership) {
   if (!ownership?.identity_role && !ownership?.identity_nickname && !ownership?.identity_uid) return {};
@@ -16,6 +26,22 @@ function buildStoredOwnershipIdentityFields(ownership) {
     identity_nickname: ownership.identity_nickname,
     identity_uid: ownership.identity_uid || ''
   };
+}
+
+function getSnapshotFromUser(user, identityFields = {}) {
+  return {
+    userId: user?._id,
+    displayId: identityFields.identity_nickname || getUserDisplayId(user),
+    qq: user?.qq || ''
+  };
+}
+
+function isSameUserSnapshot(actor, targetSnapshot) {
+  if (!actor || !targetSnapshot) return false;
+  if (targetSnapshot.user && String(targetSnapshot.user._id) === String(actor._id)) return true;
+  if (targetSnapshot.qq && actor.qq && String(targetSnapshot.qq) === String(actor.qq)) return true;
+  const actorDisplayId = getUserDisplayId(actor);
+  return Boolean(targetSnapshot.displayId && actorDisplayId && targetSnapshot.displayId === actorDisplayId);
 }
 
 exports.getMyAssets = async (req, res) => {
@@ -72,79 +98,48 @@ exports.getMyAssets = async (req, res) => {
 };
 
 exports.transferAsset = async (req, res) => {
-  const { ownership_id, target_id, target_qq } = req.body;
+  const { ownership_id, target_id, target_qq, target_display_id } = req.body;
   try {
     const actor = await User.findById(req.user.id);
-    if (!actor) {
-      return res.status(404).json({ message: '用户不存在' });
-    }
-    if (actor.vip_level < 2) {
-      return res.status(403).json({ message: '您的转让次数不足，无法转让' });
-    }
-    if (actor.transfer_remaining <= 0) {
-      return res.status(400).json({ message: '您的转让次数不足，无法转让' });
-    }
+    if (!actor) return res.status(404).json({ message: '用户不存在' });
+
     const ownership = await Ownership.findOne({
       _id: ownership_id,
       user_id: req.user.id,
-      acquisition_type: { $in: ['self', 'transfer_in'] },
-      transfer_locked: { $ne: true },
       active: true
     }).populate('item_id');
     if (!ownership) {
-      const lockedOwnership = await Ownership.findOne({
-        _id: ownership_id,
-        user_id: req.user.id,
-        acquisition_type: { $in: ['self', 'transfer_in'] },
-        transfer_locked: true,
-        active: true
-      }).lean();
-      if (lockedOwnership) {
-        return res.status(400).json({ message: '该素材不可转让' });
-      }
       return res.status(404).json({ message: '未找到可转让的素材记录' });
     }
-    const item = ownership.item_id;
-
-    // Find target user by ID or QQ
-    let targetQuery;
-    if (target_id && target_qq) {
-      targetQuery = { $or: [{ _id: target_id }, { qq: target_qq }] };
-    } else if (target_id) {
-      targetQuery = { _id: target_id };
-    } else if (target_qq) {
-      targetQuery = { qq: target_qq };
-    } else {
-      return res.status(400).json({ message: '请提供接转方的 ID 或 QQ' });
+    if (!isTransferableOwnership(ownership, actor)) {
+      return res.status(400).json({ message: '仅 VIP2/VIP3 可转让购买或活动购买的自用授权，且需有剩余转让次数' });
     }
 
-    const targetUser = await User.findOne(targetQuery);
-    if (!targetUser) {
-      return res.status(404).json({ message: '接转方用户未注册，请让对方先注册账号' });
+    const targetDisplayId = target_display_id || target_id;
+    if (!targetDisplayId && !target_qq) {
+      return res.status(400).json({ message: '请提供接转方圈名 ID 或 QQ' });
     }
-    if (String(targetUser._id) === String(actor._id)) {
+    const targetSnapshot = await resolveUserSnapshot({ qq: target_qq, displayId: targetDisplayId });
+    if (isSameUserSnapshot(actor, targetSnapshot)) {
       return res.status(400).json({ message: '不能转让给自己' });
     }
-    const existingOwnership = await Ownership.findOne({
-      user_id: targetUser._id,
-      item_id: item._id,
-      acquisition_type: { $ne: 'transfer_out' },
-      active: true
-    });
-    if (existingOwnership) {
-      return res.status(400).json({ message: '接转方已拥有该素材' });
-    }
+
+    const item = ownership.item_id;
+    const transferPoints = getTransferPoints(ownership, item);
+    const now = new Date();
+    const actorIdentityFields = Object.keys(buildStoredOwnershipIdentityFields(ownership)).length
+      ? buildStoredOwnershipIdentityFields(ownership)
+      : buildOwnershipIdentityFields(selectIdentityForMaterial(actor, item.material_domain));
+    const actorSnapshot = getSnapshotFromUser(actor, actorIdentityFields);
+    const targetIdentityFields = targetSnapshot.user
+      ? buildOwnershipIdentityFields(selectIdentityForMaterial(targetSnapshot.user, item.material_domain))
+      : {};
+    const usageField = ownership.usage_field || actorIdentityFields.identity_role || '';
+    const acquisitionMethod = ownership.acquisition_method || '购买';
 
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
-      const now = new Date();
-      const actorIdentityFields = Object.keys(buildStoredOwnershipIdentityFields(ownership)).length
-        ? buildStoredOwnershipIdentityFields(ownership)
-        : buildOwnershipIdentityFields(selectIdentityForMaterial(actor, item.material_domain));
-      const targetIdentityFields = buildOwnershipIdentityFields(selectIdentityForMaterial(targetUser, item.material_domain));
-
-      // Deactivate the original self ownership while keeping it for rollback recovery.
       await Ownership.findByIdAndUpdate(ownership._id, { active: false }, { session });
 
       const [transferOutOwnership, receiverOwnership] = await Ownership.create([
@@ -152,20 +147,41 @@ exports.transferAsset = async (req, res) => {
           user_id: actor._id,
           item_id: item._id,
           acquisition_type: 'transfer_out',
-          points_delta: 0,
+          usage_field: usageField,
+          acquisition_method: acquisitionMethod,
+          usage_purpose: '自用',
+          purchaser_user_id: actor._id,
+          purchaser_display_id: actorSnapshot.displayId,
+          purchaser_qq: actorSnapshot.qq,
+          actual_user_id: actor._id,
+          actual_display_id: actorSnapshot.displayId,
+          actual_qq: actorSnapshot.qq,
+          points_user_id: actor._id,
+          points_delta: -transferPoints,
+          annual_spend_delta: 0,
           occurred_at: now,
-          target_user_id: targetUser._id,
+          target_user_id: targetSnapshot.user?._id,
+          source_ownership_id: ownership._id,
           ...actorIdentityFields,
           active: true
         },
         {
-          user_id: targetUser._id,
+          user_id: targetSnapshot.user?._id,
           item_id: item._id,
           acquisition_type: 'self',
-          points_delta: 0,
+          usage_field: usageField,
+          acquisition_method: acquisitionMethod,
+          usage_purpose: '自用',
+          actual_user_id: targetSnapshot.user?._id,
+          actual_display_id: targetSnapshot.displayId,
+          actual_qq: targetSnapshot.qq,
+          points_user_id: targetSnapshot.user?._id,
+          points_delta: transferPoints,
+          annual_spend_delta: 0,
           occurred_at: now,
           delivery_link: ownership.delivery_link || item.delivery_link,
           source_user_id: actor._id,
+          source_ownership_id: ownership._id,
           ...targetIdentityFields,
           active: true
         }
@@ -173,7 +189,12 @@ exports.transferAsset = async (req, res) => {
 
       await Ownership.findByIdAndUpdate(
         transferOutOwnership._id,
-        { replaced_by: receiverOwnership._id },
+        { replaced_by: receiverOwnership._id, related_ownership_id: receiverOwnership._id },
+        { session }
+      );
+      await Ownership.findByIdAndUpdate(
+        receiverOwnership._id,
+        { related_ownership_id: transferOutOwnership._id },
         { session }
       );
 
@@ -181,27 +202,50 @@ exports.transferAsset = async (req, res) => {
         {
           type: 'transfer_out',
           actor_id: actor._id,
-          target_id: targetUser._id,
+          target_id: targetSnapshot.user?._id,
           item_id: item._id,
           price: item.price,
-          points_change: 0,
+          points_change: -transferPoints,
+          annual_spend_change: 0,
+          transfer_remaining_after: Math.max(0, (actor.transfer_remaining || 0) - 1),
           has_delivery_link: false,
-          occurred_at: now
+          occurred_at: now,
+          metadata: {
+            usage_field: usageField,
+            acquisition_method: acquisitionMethod,
+            target_display_id: targetSnapshot.displayId,
+            target_qq: targetSnapshot.qq,
+            ownership_id: ownership._id,
+            receiver_ownership_id: receiverOwnership._id
+          }
         },
         {
           type: 'transfer_in',
-          actor_id: targetUser._id,
+          actor_id: targetSnapshot.user?._id,
           target_id: actor._id,
           item_id: item._id,
           price: item.price,
-          points_change: 0,
+          points_change: transferPoints,
+          annual_spend_change: 0,
           has_delivery_link: true,
-          occurred_at: now
+          occurred_at: now,
+          metadata: {
+            usage_field: usageField,
+            acquisition_method: acquisitionMethod,
+            source_display_id: actorSnapshot.displayId,
+            source_qq: actorSnapshot.qq,
+            ownership_id: receiverOwnership._id
+          }
         }
       ], { session });
 
-      actor.transfer_remaining -= 1;
+      actor.points_total = Math.max(0, (actor.points_total || 0) - transferPoints);
+      actor.transfer_remaining = Math.max(0, (actor.transfer_remaining || 0) - 1);
       await actor.save({ session });
+      if (targetSnapshot.user) {
+        targetSnapshot.user.points_total = (targetSnapshot.user.points_total || 0) + transferPoints;
+        await targetSnapshot.user.save({ session });
+      }
       await session.commitTransaction();
     } catch (txErr) {
       await session.abortTransaction();
@@ -210,7 +254,9 @@ exports.transferAsset = async (req, res) => {
       session.endSession();
     }
 
-    logger.info('Asset transferred', { from: actor._id, to: targetUser._id, item: item._id });
+    await syncUserVip(actor._id);
+    if (targetSnapshot.user) await syncUserVip(targetSnapshot.user._id);
+    logger.info('Asset transferred', { from: actor._id, to: targetSnapshot.user?._id || targetSnapshot.displayId || targetSnapshot.qq, item: item._id });
     return res.json({ message: '转让成功' });
   } catch (err) {
     logger.error('transferAsset error', { message: err.message });
@@ -219,7 +265,7 @@ exports.transferAsset = async (req, res) => {
 };
 
 exports.sponsorAsset = async (req, res) => {
-  const { item_id, target_id, target_qq } = req.body;
+  const { item_id, target_id, target_qq, target_display_id, acquisition_method } = req.body;
   try {
     const item = await Item.findById(item_id);
     if (!item || item.status === 'off_sale') {
@@ -227,130 +273,132 @@ exports.sponsorAsset = async (req, res) => {
     }
 
     const actor = await User.findById(req.user.id);
-    if (!actor) {
-      return res.status(404).json({ message: '用户不存在' });
-    }
+    if (!actor) return res.status(404).json({ message: '用户不存在' });
+
+    const method = acquisition_method === '活动购买' ? '活动购买' : '购买';
+    const hasTarget = Boolean(target_id || target_qq || target_display_id);
+    const purpose = hasTarget ? '赞助确定' : '赞助待定';
     const now = new Date();
     const actorIdentityFields = buildOwnershipIdentityFields(selectIdentityForMaterial(actor, item.material_domain));
-
-    // If no target specified, create sponsor_pending
-    if (!target_id && !target_qq) {
-      const session = await mongoose.startSession();
-      session.startTransaction();
-      try {
-        await Ownership.create([{
-          user_id: actor._id,
-          item_id: item._id,
-          acquisition_type: 'sponsor_pending',
-          points_delta: item.price,
-          occurred_at: now,
-          ...actorIdentityFields,
-          active: true
-        }], { session });
-
-        await Transaction.create([{
-          type: 'purchase_sponsor',
-          actor_id: actor._id,
-          item_id: item._id,
-          price: item.price,
-          points_change: item.price,
-          has_delivery_link: false,
-          occurred_at: now
-        }], { session });
-
-        actor.points_total += item.price;
-        actor.annual_spend += item.price;
-        await actor.save({ session });
-        await session.commitTransaction();
-      } catch (txErr) {
-        await session.abortTransaction();
-        throw txErr;
-      } finally {
-        session.endSession();
-      }
-
-      await syncUserVip(actor._id);
-      return res.json({ message: '赞助待定，稍后可登记接收方' });
+    const usageField = actorIdentityFields.identity_role || '';
+    const actorSnapshot = getSnapshotFromUser(actor, actorIdentityFields);
+    const targetSnapshot = hasTarget
+      ? await resolveUserSnapshot({ qq: target_qq, displayId: target_display_id || target_id })
+      : { user: null, displayId: '', qq: '' };
+    if (hasTarget && !targetSnapshot.displayId && !targetSnapshot.qq) {
+      return res.status(400).json({ message: '请提供被赞助方圈名 ID 或 QQ' });
+    }
+    if (hasTarget && isSameUserSnapshot(actor, targetSnapshot)) {
+      return res.status(400).json({ message: '赞助对象不能是自己' });
     }
 
-    // Find target user
-    let targetQuery;
-    if (target_id && target_qq) {
-      targetQuery = { $or: [{ _id: target_id }, { qq: target_qq }] };
-    } else if (target_id) {
-      targetQuery = { _id: target_id };
-    } else {
-      targetQuery = { qq: target_qq };
-    }
-
-    const targetUser = await User.findOne(targetQuery);
-    if (!targetUser) {
-      return res.status(404).json({ message: '赞助对象未注册' });
-    }
-
-    const existingOwnership = await Ownership.findOne({
-      user_id: targetUser._id,
-      item_id: item._id,
-      acquisition_type: { $ne: 'transfer_out' },
-      active: true
+    const targetIdentityFields = targetSnapshot.user
+      ? buildOwnershipIdentityFields(selectIdentityForMaterial(targetSnapshot.user, item.material_domain))
+      : {};
+    const { points, annualSpend } = resolvePointsAndSpend({
+      item,
+      acquisitionMethod: method,
+      usagePurpose: purpose
     });
-    if (existingOwnership) {
-      return res.status(400).json({ message: '对方已拥有该素材' });
-    }
-    const targetIdentityFields = buildOwnershipIdentityFields(selectIdentityForMaterial(targetUser, item.material_domain));
 
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
-      await Ownership.create([
-        {
-          user_id: actor._id,
-          item_id: item._id,
-          acquisition_type: 'sponsor',
-          points_delta: item.price,
-          occurred_at: now,
-          target_user_id: targetUser._id,
-          ...actorIdentityFields,
-          active: true
-        },
-        {
-          user_id: targetUser._id,
+      const [sponsorOwnership] = await Ownership.create([{
+        user_id: actor._id,
+        item_id: item._id,
+        acquisition_type: purpose === '赞助待定' ? 'sponsor_pending' : 'sponsor',
+        usage_field: usageField,
+        acquisition_method: method,
+        usage_purpose: purpose,
+        purchaser_user_id: actor._id,
+        purchaser_display_id: actorSnapshot.displayId,
+        purchaser_qq: actorSnapshot.qq,
+        actual_user_id: targetSnapshot.user?._id,
+        actual_display_id: targetSnapshot.displayId,
+        actual_qq: targetSnapshot.qq,
+        points_user_id: actor._id,
+        points_delta: points,
+        annual_spend_delta: annualSpend,
+        occurred_at: now,
+        target_user_id: targetSnapshot.user?._id,
+        ...actorIdentityFields,
+        active: true
+      }], { session });
+
+      const transactionDocs = [{
+        type: 'purchase_sponsor',
+        actor_id: actor._id,
+        target_id: targetSnapshot.user?._id,
+        item_id: item._id,
+        price: item.price,
+        points_change: points,
+        annual_spend_change: annualSpend,
+        has_delivery_link: false,
+        occurred_at: now,
+        metadata: {
+          usage_field: usageField,
+          acquisition_method: method,
+          usage_purpose: purpose,
+          target_display_id: targetSnapshot.displayId,
+          target_qq: targetSnapshot.qq,
+          ownership_id: sponsorOwnership._id
+        }
+      }];
+
+      if (hasTarget) {
+        const [sponsoredOwnership] = await Ownership.create([{
+          user_id: targetSnapshot.user?._id,
           item_id: item._id,
           acquisition_type: 'sponsored',
+          usage_field: usageField,
+          acquisition_method: '被赞助',
+          usage_purpose: '自用',
+          purchaser_user_id: actor._id,
+          purchaser_display_id: actorSnapshot.displayId,
+          purchaser_qq: actorSnapshot.qq,
+          actual_user_id: targetSnapshot.user?._id,
+          actual_display_id: targetSnapshot.displayId,
+          actual_qq: targetSnapshot.qq,
           points_delta: 0,
+          annual_spend_delta: 0,
           occurred_at: now,
           delivery_link: item.delivery_link,
           source_user_id: actor._id,
+          related_ownership_id: sponsorOwnership._id,
           ...targetIdentityFields,
           active: true
-        }
-      ], { session });
-
-      await Transaction.create([
-        {
-          type: 'purchase_sponsor',
-          actor_id: actor._id,
-          target_id: targetUser._id,
-          item_id: item._id,
-          price: item.price,
-          points_change: item.price,
-          has_delivery_link: false,
-          occurred_at: now
-        },
-        {
+        }], { session });
+        await Ownership.findByIdAndUpdate(
+          sponsorOwnership._id,
+          { related_ownership_id: sponsoredOwnership._id },
+          { session }
+        );
+        transactionDocs.push({
           type: 'sponsored',
-          actor_id: targetUser._id,
+          actor_id: targetSnapshot.user?._id,
           target_id: actor._id,
           item_id: item._id,
           price: item.price,
           points_change: 0,
+          annual_spend_change: 0,
           has_delivery_link: true,
-          occurred_at: now
-        }
-      ], { session });
+          occurred_at: now,
+          metadata: {
+            usage_field: usageField,
+            acquisition_method: '被赞助',
+            usage_purpose: '自用',
+            source_display_id: actorSnapshot.displayId,
+            source_qq: actorSnapshot.qq,
+            ownership_id: sponsoredOwnership._id
+          }
+        });
+      }
 
-      actor.points_total += item.price;
-      actor.annual_spend += item.price;
+      await Transaction.create(transactionDocs, { session });
+
+      actor.points_total += points;
+      actor.annual_spend += annualSpend;
       await actor.save({ session });
       await session.commitTransaction();
     } catch (txErr) {
@@ -361,8 +409,8 @@ exports.sponsorAsset = async (req, res) => {
     }
 
     await syncUserVip(actor._id);
-    logger.info('Asset sponsored', { actor: actor._id, target: targetUser._id, item: item._id });
-    return res.json({ message: '赞助成功' });
+    logger.info('Asset sponsored', { actor: actor._id, target: targetSnapshot.user?._id || targetSnapshot.displayId || targetSnapshot.qq, item: item._id });
+    return res.json({ message: hasTarget ? '赞助成功' : '赞助待定，稍后可登记接收方' });
   } catch (err) {
     logger.error('sponsorAsset error', { message: err.message });
     return res.status(500).json({ message: '服务器错误' });
@@ -371,10 +419,10 @@ exports.sponsorAsset = async (req, res) => {
 
 // Register a sponsor_pending ownership to a specific target user
 exports.registerSponsor = async (req, res) => {
-  const { ownership_id, target_id, target_qq } = req.body;
+  const { ownership_id, target_id, target_qq, target_display_id } = req.body;
   try {
-    if (!target_id && !target_qq) {
-      return res.status(400).json({ message: '请提供被赞助方的 ID 或 QQ' });
+    if (!target_id && !target_qq && !target_display_id) {
+      return res.status(400).json({ message: '请提供被赞助方圈名 ID 或 QQ' });
     }
 
     const ownership = await Ownership.findOne({
@@ -387,63 +435,79 @@ exports.registerSponsor = async (req, res) => {
       return res.status(404).json({ message: '未找到待登记的赞助记录' });
     }
 
-    let targetQuery;
-    if (target_id && target_qq) {
-      targetQuery = { $or: [{ _id: target_id }, { qq: target_qq }] };
-    } else if (target_id) {
-      targetQuery = { _id: target_id };
-    } else {
-      targetQuery = { qq: target_qq };
+    const actor = await User.findById(req.user.id);
+    const targetSnapshot = await resolveUserSnapshot({ qq: target_qq, displayId: target_display_id || target_id });
+    if (!targetSnapshot.displayId && !targetSnapshot.qq) {
+      return res.status(400).json({ message: '请提供被赞助方圈名 ID 或 QQ' });
     }
-
-    const targetUser = await User.findOne(targetQuery);
-    if (!targetUser) {
-      return res.status(404).json({ message: '被赞助方用户未注册' });
+    if (isSameUserSnapshot(actor, targetSnapshot)) {
+      return res.status(400).json({ message: '赞助对象不能是自己' });
     }
 
     const item = ownership.item_id;
-    const existingOwnership = await Ownership.findOne({
-      user_id: targetUser._id,
-      item_id: item._id,
-      acquisition_type: { $ne: 'transfer_out' },
-      active: true
-    });
-    if (existingOwnership) {
-      return res.status(400).json({ message: '被赞助方已拥有该素材' });
-    }
-    const targetIdentityFields = buildOwnershipIdentityFields(selectIdentityForMaterial(targetUser, item.material_domain));
+    const targetIdentityFields = targetSnapshot.user
+      ? buildOwnershipIdentityFields(selectIdentityForMaterial(targetSnapshot.user, item.material_domain))
+      : {};
     const now = new Date();
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
-      // Change sponsor_pending to sponsor
       await Ownership.findByIdAndUpdate(ownership._id, {
         acquisition_type: 'sponsor',
-        target_user_id: targetUser._id
+        usage_purpose: '赞助确定',
+        actual_user_id: targetSnapshot.user?._id,
+        actual_display_id: targetSnapshot.displayId,
+        actual_qq: targetSnapshot.qq,
+        target_user_id: targetSnapshot.user?._id
       }, { session });
 
-      // Create sponsored ownership for target
-      await Ownership.create([{
-        user_id: targetUser._id,
+      const [sponsoredOwnership] = await Ownership.create([{
+        user_id: targetSnapshot.user?._id,
         item_id: item._id,
         acquisition_type: 'sponsored',
+        usage_field: ownership.usage_field || ownership.identity_role || '',
+        acquisition_method: '被赞助',
+        usage_purpose: '自用',
+        purchaser_user_id: ownership.purchaser_user_id || actor?._id,
+        purchaser_display_id: ownership.purchaser_display_id || getUserDisplayId(actor),
+        purchaser_qq: ownership.purchaser_qq || actor?.qq || '',
+        actual_user_id: targetSnapshot.user?._id,
+        actual_display_id: targetSnapshot.displayId,
+        actual_qq: targetSnapshot.qq,
         points_delta: 0,
+        annual_spend_delta: 0,
         occurred_at: now,
         delivery_link: item.delivery_link,
         source_user_id: req.user.id,
+        related_ownership_id: ownership._id,
         ...targetIdentityFields,
         active: true
       }], { session });
 
+      await Ownership.findByIdAndUpdate(
+        ownership._id,
+        { related_ownership_id: sponsoredOwnership._id },
+        { session }
+      );
+
       await Transaction.create([{
         type: 'sponsored',
-        actor_id: targetUser._id,
+        actor_id: targetSnapshot.user?._id,
         target_id: mongoose.Types.ObjectId.createFromHexString(req.user.id),
         item_id: item._id,
         price: item.price,
         points_change: 0,
+        annual_spend_change: 0,
         has_delivery_link: true,
-        occurred_at: now
+        occurred_at: now,
+        metadata: {
+          usage_field: sponsoredOwnership.usage_field,
+          acquisition_method: '被赞助',
+          usage_purpose: '自用',
+          target_display_id: targetSnapshot.displayId,
+          target_qq: targetSnapshot.qq,
+          ownership_id: sponsoredOwnership._id
+        }
       }], { session });
 
       await session.commitTransaction();
@@ -454,7 +518,7 @@ exports.registerSponsor = async (req, res) => {
       session.endSession();
     }
 
-    logger.info('Sponsor registered', { actor: req.user.id, target: targetUser._id, item: item._id });
+    logger.info('Sponsor registered', { actor: req.user.id, target: targetSnapshot.user?._id || targetSnapshot.displayId || targetSnapshot.qq, item: item._id });
     return res.json({ message: '登记成功' });
   } catch (err) {
     logger.error('registerSponsor error', { message: err.message });

@@ -28,6 +28,16 @@ function normalizeVipLevelPayload(payload = {}) {
     );
   }
 
+  if (
+    rawPerks.assisted_buyback_per_year !== undefined ||
+    payload.assisted_buyback_per_year !== undefined ||
+    payload.assisted_repurchase_per_year !== undefined
+  ) {
+    perkUpdates.assisted_buyback_per_year = Number(
+      rawPerks.assisted_buyback_per_year ?? payload.assisted_buyback_per_year ?? payload.assisted_repurchase_per_year
+    );
+  }
+
   if (rawPerks.transfer_per_year !== undefined || payload.transfer_per_year !== undefined) {
     perkUpdates.transfer_per_year = Number(rawPerks.transfer_per_year ?? payload.transfer_per_year);
   }
@@ -69,6 +79,7 @@ function serializeVipLevel(levelDoc) {
     points_threshold: level.threshold,
     repurchase_per_year: perks.buyback_per_year ?? 0,
     buyback_per_year: perks.buyback_per_year ?? 0,
+    assisted_buyback_per_year: perks.assisted_buyback_per_year ?? perks.buyback_per_year ?? 0,
     transfer_per_year: perks.transfer_per_year ?? 0,
     free_grab_per_year: perks.skip_queue_per_year ?? 0,
     skip_queue_per_year: perks.skip_queue_per_year ?? 0,
@@ -121,6 +132,9 @@ exports.importVips = async (req, res) => {
     try {
       const user = await findOrCreateUserByEmailOrQq(rec.email, rec.qq);
       const vipLevel = Number(rec.vip_level) || 0;
+      if (vipLevel > 3) {
+        throw new Error('VIP 等级只支持 0、1、2、3');
+      }
       const vipLevelDoc = vipLevel > 0 ? await VipLevel.findOne({ level: vipLevel }) : null;
 
       if (vipLevel > 0 && !vipLevelDoc) {
@@ -136,11 +150,13 @@ exports.importVips = async (req, res) => {
       if (vipLevelDoc) {
         user.transfer_remaining = vipLevelDoc.perks.transfer_per_year;
         user.buyback_remaining = vipLevelDoc.perks.buyback_per_year;
+        user.assisted_buyback_remaining = vipLevelDoc.perks.assisted_buyback_per_year ?? vipLevelDoc.perks.buyback_per_year ?? 0;
         user.skip_queue_remaining = vipLevelDoc.perks.skip_queue_per_year || 0;
         if (!user.roles.includes('vip')) user.roles.push('vip');
       } else {
         user.transfer_remaining = 0;
         user.buyback_remaining = 0;
+        user.assisted_buyback_remaining = 0;
         user.skip_queue_remaining = 0;
         user.roles = user.roles.filter(role => role !== 'vip');
       }
@@ -164,7 +180,7 @@ exports.importVips = async (req, res) => {
 
 exports.getLevels = async (req, res) => {
   try {
-    const levels = await VipLevel.find().sort({ level: 1 }).lean();
+    const levels = await VipLevel.find({ level: { $lte: 3 } }).sort({ level: 1 }).lean();
     return res.json({ levels: levels.map(serializeVipLevel) });
   } catch (err) {
     logger.error('getLevels error', { message: err.message });
@@ -175,8 +191,8 @@ exports.getLevels = async (req, res) => {
 exports.createLevel = async (req, res) => {
   try {
     const payload = normalizeVipLevelPayload(req.body);
-    if (!Number.isFinite(payload.level) || payload.level <= 0) {
-      return res.status(400).json({ message: '请提供有效的 VIP 等级编号' });
+    if (!Number.isFinite(payload.level) || payload.level <= 0 || payload.level > 3) {
+      return res.status(400).json({ message: 'VIP 等级只支持 1、2、3' });
     }
     if (!Number.isFinite(payload.threshold) || payload.threshold < 0) {
       return res.status(400).json({ message: '请提供有效的积分门槛' });
@@ -193,6 +209,7 @@ exports.createLevel = async (req, res) => {
       active: payload.active ?? true,
       perks: {
         buyback_per_year: payload.perks?.buyback_per_year ?? 0,
+        assisted_buyback_per_year: payload.perks?.assisted_buyback_per_year ?? payload.perks?.buyback_per_year ?? 0,
         transfer_per_year: payload.perks?.transfer_per_year ?? 0,
         skip_queue_per_year: payload.perks?.skip_queue_per_year ?? 0,
         priority_buy: payload.perks?.priority_buy ?? false
@@ -212,6 +229,9 @@ exports.updateLevel = async (req, res) => {
     const vipLevel = await findVipLevelByIdentifier(id);
     if (!vipLevel) {
       return res.status(404).json({ message: 'VIP等级不存在' });
+    }
+    if (vipLevel.level > 3) {
+      return res.status(400).json({ message: 'VIP4/VIP5 已下线，不支持修改' });
     }
 
     const payload = normalizeVipLevelPayload(req.body);
@@ -250,7 +270,7 @@ exports.getVipCustomers = async (req, res) => {
     }
     const total = await User.countDocuments(filter);
     const users = await User.find(filter)
-      .select('username platform platform_id qq vip_level points_total annual_spend transfer_remaining buyback_remaining')
+      .select('username platform platform_id qq vip_level points_total annual_spend transfer_remaining buyback_remaining assisted_buyback_remaining')
       .sort({ vip_level: -1, points_total: -1 })
       .skip((pageNum - 1) * limitNum)
       .limit(limitNum)
@@ -267,10 +287,13 @@ exports.resetCounters = async (req, res) => {
   try {
     let levelsToReset = [];
     if (vip_level !== undefined) {
+      if (Number(vip_level) > 3) {
+        return res.status(400).json({ message: 'VIP 等级只支持 1、2、3' });
+      }
       const lvl = await VipLevel.findOne({ level: Number(vip_level) });
       if (lvl) levelsToReset = [lvl];
     } else {
-      levelsToReset = await VipLevel.find({ active: true });
+      levelsToReset = await VipLevel.find({ active: true, level: { $lte: 3 } });
     }
 
     let updated = 0;
@@ -280,6 +303,7 @@ exports.resetCounters = async (req, res) => {
         {
           transfer_remaining: lvl.perks.transfer_per_year,
           buyback_remaining: lvl.perks.buyback_per_year,
+          assisted_buyback_remaining: lvl.perks.assisted_buyback_per_year ?? lvl.perks.buyback_per_year ?? 0,
           skip_queue_remaining: lvl.perks.skip_queue_per_year || 0
         }
       );
@@ -322,6 +346,7 @@ exports.updateVipCustomer = async (req, res) => {
     points_total,
     transfer_remaining,
     buyback_remaining,
+    assisted_buyback_remaining,
     skip_queue_remaining
   } = req.body;
   try {
@@ -335,11 +360,15 @@ exports.updateVipCustomer = async (req, res) => {
       points_total: user.points_total,
       transfer_remaining: user.transfer_remaining,
       buyback_remaining: user.buyback_remaining,
+      assisted_buyback_remaining: user.assisted_buyback_remaining,
       skip_queue_remaining: user.skip_queue_remaining
     };
 
     if (vip_level !== undefined && Number(vip_level) !== user.vip_level) {
       const nextLevel = Number(vip_level);
+      if (nextLevel > 3) {
+        return res.status(400).json({ message: 'VIP 等级只支持 0、1、2、3' });
+      }
       if (nextLevel > user.vip_level) {
         return res.status(400).json({ message: '只允许手动降级，不允许升级' });
       }
@@ -356,11 +385,13 @@ exports.updateVipCustomer = async (req, res) => {
         if (!user.roles.includes('vip')) user.roles.push('vip');
         user.transfer_remaining = vipLevelDoc.perks.transfer_per_year;
         user.buyback_remaining = vipLevelDoc.perks.buyback_per_year;
+        user.assisted_buyback_remaining = vipLevelDoc.perks.assisted_buyback_per_year ?? vipLevelDoc.perks.buyback_per_year ?? 0;
         user.skip_queue_remaining = vipLevelDoc.perks.skip_queue_per_year || 0;
       } else {
         user.vip_level = 0;
         user.transfer_remaining = 0;
         user.buyback_remaining = 0;
+        user.assisted_buyback_remaining = 0;
         user.skip_queue_remaining = 0;
         user.roles = user.roles.filter(role => role !== 'vip');
       }
@@ -369,6 +400,7 @@ exports.updateVipCustomer = async (req, res) => {
     if (points_total !== undefined) user.points_total = Number(points_total) || 0;
     if (transfer_remaining !== undefined) user.transfer_remaining = Number(transfer_remaining) || 0;
     if (buyback_remaining !== undefined) user.buyback_remaining = Number(buyback_remaining) || 0;
+    if (assisted_buyback_remaining !== undefined) user.assisted_buyback_remaining = Number(assisted_buyback_remaining) || 0;
     if (skip_queue_remaining !== undefined) user.skip_queue_remaining = Number(skip_queue_remaining) || 0;
 
     await user.save();
@@ -378,6 +410,7 @@ exports.updateVipCustomer = async (req, res) => {
       points_total: user.points_total,
       transfer_remaining: user.transfer_remaining,
       buyback_remaining: user.buyback_remaining,
+      assisted_buyback_remaining: user.assisted_buyback_remaining,
       skip_queue_remaining: user.skip_queue_remaining
     }, req);
     return res.json({ message: 'VIP等级已更新', user });

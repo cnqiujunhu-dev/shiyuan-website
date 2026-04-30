@@ -19,8 +19,13 @@
         <select v-model="search.type" class="search-input">
           <option value="">全部</option>
           <option value="purchase_self">自购</option>
+          <option value="purchase_activity">活动购买</option>
           <option value="purchase_sponsor">赞助他人</option>
           <option value="sponsored">被赞助</option>
+          <option value="buyback">回购</option>
+          <option value="assisted_buyback">会员帮回购</option>
+          <option value="lottery">中奖</option>
+          <option value="retirement_drop">退圈掉落</option>
           <option value="transfer_out">转出</option>
           <option value="transfer_in">转入</option>
         </select>
@@ -178,8 +183,13 @@ function formatDate(d) {
 function typeLabel(t) {
   const map = {
     purchase_self: '自购',
+    purchase_activity: '活动购买',
     purchase_sponsor: '赞助他人',
     sponsored: '被赞助',
+    buyback: '回购',
+    assisted_buyback: '会员帮回购',
+    lottery: '中奖',
+    retirement_drop: '退圈掉落',
     transfer_out: '转出',
     transfer_in: '转入'
   }
@@ -189,8 +199,13 @@ function typeLabel(t) {
 function typeBadgeClass(t) {
   const map = {
     purchase_self: 'self',
+    purchase_activity: 'self',
     purchase_sponsor: 'sponsor',
     sponsored: 'sponsored',
+    buyback: 'self',
+    assisted_buyback: 'sponsor',
+    lottery: 'sponsored',
+    retirement_drop: 'transfer-in',
     transfer_out: 'transfer-out',
     transfer_in: 'transfer-in'
   }

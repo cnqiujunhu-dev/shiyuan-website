@@ -25,34 +25,30 @@
       <table v-else>
         <thead>
           <tr>
-            <th>获取类型</th>
-            <th>领域</th>
-            <th>圈名 ID</th>
-            <th>UID</th>
-            <th>QQ</th>
+            <th>使用领域</th>
+            <th>获取途径</th>
+            <th>用途</th>
+            <th>购买人</th>
+            <th>实际使用人</th>
             <th>积分</th>
+            <th>年度消费</th>
             <th>发货链接</th>
-            <th>关联用户</th>
             <th>获取时间</th>
             <th>操作</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="row in rows" :key="row._id">
-            <td><span :class="['badge', typeBadgeClass(row.acquisition_type)]">{{ typeLabel(row.acquisition_type) }}</span></td>
-            <td>{{ row.identity_role || '-' }}</td>
-            <td>{{ row.identity_nickname || row.user_id?.platform_id || row.user_id?.username || '-' }}</td>
-            <td>{{ row.identity_uid || '-' }}</td>
-            <td>{{ row.user_id?.qq || '-' }}</td>
+            <td>{{ row.usage_field || row.identity_role || '-' }}</td>
+            <td><span :class="['badge', methodBadgeClass(row.acquisition_method)]">{{ row.acquisition_method || typeLabel(row.acquisition_type) }}</span></td>
+            <td>{{ row.usage_purpose || '-' }}</td>
+            <td class="text-sm">{{ personLabel(row, 'purchaser') }}</td>
+            <td class="text-sm">{{ personLabel(row, 'actual') }}</td>
             <td>{{ row.points_delta || 0 }}</td>
+            <td>{{ row.annual_spend_delta || 0 }}</td>
             <td class="link-cell">
               <a v-if="row.delivery_link" :href="row.delivery_link" target="_blank" rel="noopener">查看链接</a>
               <span v-else class="text-muted">-</span>
-            </td>
-            <td class="text-sm">
-              <span v-if="row.source_user_id">赞助方：{{ displayUser(row.source_user_id) }}</span>
-              <span v-if="row.target_user_id">被赞助方：{{ displayUser(row.target_user_id) }}</span>
-              <span v-if="!row.source_user_id && !row.target_user_id" class="text-muted">-</span>
             </td>
             <td class="text-sm text-muted">{{ formatDate(row.occurred_at) }}</td>
             <td>
@@ -71,17 +67,41 @@
             <button class="modal-close" @click="closeEdit">✕</button>
           </div>
           <div class="form-group">
-            <label class="form-label">获取类型</label>
-            <select v-model="editForm.acquisition_type" class="form-input">
-              <option value="self">自用</option>
-              <option value="sponsor">已赞助</option>
-              <option value="sponsored">被赞助</option>
-              <option value="sponsor_pending">赞助待定</option>
+            <label class="form-label">使用领域</label>
+            <select v-model="editForm.usage_field" class="form-input">
+              <option value="文游作者">文游作者</option>
+              <option value="小说作者">小说作者</option>
+              <option value="非重氪独立游戏作者">非重氪独立游戏作者</option>
+              <option value="美工">美工</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">获取途径</label>
+            <select v-model="editForm.acquisition_method" class="form-input">
+              <option value="购买">购买</option>
+              <option value="活动购买">活动购买</option>
+              <option value="被赞助">被赞助</option>
+              <option value="回购">回购</option>
+              <option value="会员帮回购">会员帮回购</option>
+              <option value="中奖">中奖</option>
+              <option value="退圈掉落">退圈掉落</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">用途</label>
+            <select v-model="editForm.usage_purpose" class="form-input">
+              <option value="自用">自用</option>
+              <option value="赞助待定">赞助待定</option>
+              <option value="赞助确定">赞助确定</option>
             </select>
           </div>
           <div class="form-group">
             <label class="form-label">积分</label>
             <input v-model.number="editForm.points_delta" type="number" min="0" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">年度消费</label>
+            <input v-model.number="editForm.annual_spend_delta" type="number" min="0" class="form-input" />
           </div>
           <div class="form-group">
             <label class="form-label">发货链接</label>
@@ -116,7 +136,14 @@ const loading = ref(false)
 const exporting = ref(false)
 
 const editModal = reactive({ visible: false, row: null, saving: false, error: '' })
-const editForm = reactive({ acquisition_type: 'self', points_delta: 0, delivery_link: '' })
+const editForm = reactive({
+  usage_field: '美工',
+  acquisition_method: '购买',
+  usage_purpose: '自用',
+  points_delta: 0,
+  annual_spend_delta: 0,
+  delivery_link: ''
+})
 
 function typeLabel(type) {
   const map = { self: '自用', sponsor: '已赞助', sponsored: '被赞助', sponsor_pending: '赞助待定', transfer_in: '自用', transfer_out: '转出记录' }
@@ -128,8 +155,32 @@ function typeBadgeClass(type) {
   return map[type] || 'badge-default'
 }
 
+function methodBadgeClass(method) {
+  const map = {
+    '购买': 'badge-success',
+    '活动购买': 'badge-info',
+    '被赞助': 'badge-warning',
+    '回购': 'badge-default',
+    '会员帮回购': 'badge-default',
+    '中奖': 'badge-info',
+    '退圈掉落': 'badge-warning'
+  }
+  return map[method] || 'badge-default'
+}
+
 function displayUser(user) {
   return user?.platform_id || user?.username || user?.qq || '-'
+}
+
+function personLabel(row, type) {
+  if (type === 'purchaser') {
+    const id = row.purchaser_display_id || row.purchaser_user_id?.platform_id || row.purchaser_user_id?.username || ''
+    const qq = row.purchaser_qq || row.purchaser_user_id?.qq || ''
+    return [id, qq].filter(Boolean).join(' / ') || '-'
+  }
+  const id = row.actual_display_id || row.actual_user_id?.platform_id || row.actual_user_id?.username || ''
+  const qq = row.actual_qq || row.actual_user_id?.qq || ''
+  return [id, qq].filter(Boolean).join(' / ') || '-'
 }
 
 function formatDate(value) {
@@ -158,10 +209,11 @@ function openEdit(row) {
   editModal.visible = true
   editModal.row = row
   editModal.error = ''
-  editForm.acquisition_type = ['self', 'sponsor', 'sponsored', 'sponsor_pending'].includes(row.acquisition_type)
-    ? row.acquisition_type
-    : 'self'
+  editForm.usage_field = row.usage_field || row.identity_role || '美工'
+  editForm.acquisition_method = row.acquisition_method || '购买'
+  editForm.usage_purpose = row.usage_purpose || '自用'
   editForm.points_delta = row.points_delta || 0
+  editForm.annual_spend_delta = row.annual_spend_delta || 0
   editForm.delivery_link = row.delivery_link || ''
 }
 
@@ -177,8 +229,11 @@ async function saveEdit() {
   editModal.error = ''
   try {
     await itemsAPI.updateOwnership(route.params.id, editModal.row._id, {
-      acquisition_type: editForm.acquisition_type,
+      usage_field: editForm.usage_field,
+      acquisition_method: editForm.acquisition_method,
+      usage_purpose: editForm.usage_purpose,
       points_delta: editForm.points_delta,
+      annual_spend_delta: editForm.annual_spend_delta,
       delivery_link: editForm.delivery_link
     })
     addToast('授权记录已更新')

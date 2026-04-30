@@ -42,6 +42,7 @@ exports.getSummary = async (req, res) => {
       annual_spend: user.annual_spend,
       transfer_remaining: user.transfer_remaining,
       buyback_remaining: user.buyback_remaining,
+      assisted_buyback_remaining: user.assisted_buyback_remaining,
       skip_queue_remaining: user.skip_queue_remaining
     });
   } catch (err) {

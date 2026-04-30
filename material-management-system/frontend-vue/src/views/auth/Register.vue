@@ -146,7 +146,7 @@
 import { computed, ref, reactive, onBeforeUnmount } from 'vue'
 import { authAPI } from '@/api/index.js'
 
-const roleOptions = ['文游作者', '美工美化', '小说作者']
+const roleOptions = ['文游作者', '小说作者', '非重氪独立游戏作者', '美工']
 const platformOptions = ['全平台', '橙光', '易次元', '闪艺', '晋江', '番茄', '微博', '小红书', '抖音', '快手']
 
 const qqForm = reactive({ qq: '', code: '' })

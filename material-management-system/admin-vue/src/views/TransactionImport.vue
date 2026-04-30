@@ -76,34 +76,32 @@
     <!-- Authorization Import -->
     <div v-if="activeTab === 'authorizations'" class="import-zone">
       <div class="import-desc">
-        <div class="import-desc-title">授权信息格式说明</div>
-        <p style="margin:8px 0;">请将授权记录整理为 JSON 数组格式，每条记录支持以下字段：</p>
+        <div class="import-desc-title">授权名单 Excel 格式说明</div>
+        <p style="margin:8px 0;">请上传 Excel .xlsx 授权名单；也可以临时粘贴同字段 JSON 数组。固定列如下：</p>
         <ul style="margin:8px 0 12px 16px;font-size:13px;line-height:2;">
-          <li><code>sku_code</code> 或 <code>name</code> — SKU 编码或素材名称（必填，需与系统中已有素材匹配）</li>
-          <li><code>acquisition_type_1</code> — 用户1获取类型：自用 / 已赞助 / 赞助待定（必填）</li>
-          <li><code>id1</code> — 用户1 ID（与 qq1 至少填一项）</li>
-          <li><code>qq1</code> — 用户1 QQ</li>
-          <li><code>domain1</code> / <code>领域1</code> — 用户1领域：文游作者 / 美工美化 / 小说作者</li>
-          <li><code>circle_id1</code> / <code>圈名ID1</code> — 用户1圈名 ID；领域为文游作者时需提供 <code>uid1</code></li>
-          <li><code>points1</code> — 用户1积分</li>
-          <li><code>delivery_link_1</code> — 用户1发货链接</li>
-          <li><code>acquisition_type_2</code> — 用户2获取类型：被赞助（选填）</li>
-          <li><code>id2</code> — 用户2 ID</li>
-          <li><code>qq2</code> — 用户2 QQ</li>
-          <li><code>domain2</code> / <code>领域2</code>、<code>circle_id2</code> / <code>圈名ID2</code> — 用户2身份信息</li>
-          <li><code>points2</code> — 用户2积分</li>
-          <li><code>delivery_link_2</code> — 用户2发货链接</li>
+          <li><code>素材 SKU</code> / <code>素材名称</code> — 至少填写一项，用于匹配素材</li>
+          <li><code>使用领域</code> — 文游作者 / 小说作者 / 非重氪独立游戏作者 / 美工</li>
+          <li><code>获取途径</code> — 购买 / 活动购买 / 被赞助 / 回购 / 会员帮回购 / 中奖 / 退圈掉落</li>
+          <li><code>用途</code> — 自用 / 赞助待定 / 赞助确定</li>
+          <li><code>购买人 ID</code>、<code>购买人 QQ</code>、<code>实际使用人 ID</code>、<code>实际使用人 QQ</code></li>
+          <li><code>积分</code> 可为空，系统按素材原价和获取途径自动计算；<code>发货链接</code> 可为空，默认使用素材发货链接</li>
         </ul>
         <div class="code-block">{{ authExampleJSON }}</div>
       </div>
 
       <div class="form-group" style="margin-bottom:16px;">
-        <label class="form-label">JSON 数据</label>
+        <label class="form-label">Excel 文件</label>
+        <input type="file" accept=".xlsx,.xls" class="form-input" @change="onAuthFileSelect" />
+        <span v-if="authFile" class="form-hint">已选择：{{ authFile.name }}</span>
+      </div>
+
+      <div class="form-group" style="margin-bottom:16px;">
+        <label class="form-label">JSON 数据（可选）</label>
         <textarea
           v-model="jsonText"
           class="form-textarea"
           style="min-height:280px;font-family:'Courier New',monospace;font-size:12px;"
-          placeholder="请粘贴 JSON 数组格式的授权记录..."
+          placeholder="可粘贴与 Excel 固定列同名的 JSON 数组..."
         ></textarea>
       </div>
 
@@ -141,6 +139,7 @@ function addToast(message, type = 'success') { _addToast(type, message) }
 
 const activeTab = ref('transactions')
 const jsonText = ref('')
+const authFile = ref(null)
 const isValid = ref(false)
 const validateStatus = ref(null)
 const importing = ref(false)
@@ -166,43 +165,50 @@ const txExampleJSON = `[
 
 const authExampleJSON = `[
   {
-    "sku_code": "251202",
-    "name": "佛本无相",
-    "acquisition_type_1": "自用",
-    "domain1": "文游作者",
-    "circle_id1": "2673",
-    "uid1": "WY-2673",
-    "qq1": "123456789",
-    "points1": 39,
-    "delivery_link_1": "https://pan.example.com/xxx"
+    "素材 SKU": "251202",
+    "素材名称": "佛本无相",
+    "使用领域": "文游作者",
+    "获取途径": "购买",
+    "用途": "自用",
+    "购买人 ID": "作者A",
+    "购买人 QQ": "123456789",
+    "实际使用人 ID": "作者A",
+    "实际使用人 QQ": "123456789",
+    "积分": "",
+    "发货链接": "https://pan.example.com/xxx",
+    "备注": ""
   },
   {
-    "name": "夜渡海",
-    "acquisition_type_1": "已赞助",
-    "domain1": "美工美化",
-    "circle_id1": "画师A",
-    "qq1": "234567890",
-    "points1": 39,
-    "delivery_link_1": "",
-    "acquisition_type_2": "被赞助",
-    "domain2": "小说作者",
-    "circle_id2": "作者B",
-    "qq2": "123456789",
-    "points2": 0,
-    "delivery_link_2": "https://pan.example.com/yyy"
+    "素材名称": "夜渡海",
+    "使用领域": "小说作者",
+    "获取途径": "活动购买",
+    "用途": "赞助确定",
+    "购买人 ID": "赞助人A",
+    "购买人 QQ": "234567890",
+    "实际使用人 ID": "作者B",
+    "实际使用人 QQ": "123456789",
+    "积分": "",
+    "发货链接": "",
+    "备注": "活动赞助"
   },
   {
-    "name": "佛本无相",
-    "acquisition_type_1": "赞助待定",
-    "domain1": "美工美化",
-    "circle_id1": "画师C",
-    "qq1": "345678901",
-    "points1": 39,
-    "delivery_link_1": ""
+    "素材名称": "旧素材",
+    "使用领域": "美工",
+    "获取途径": "会员帮回购",
+    "用途": "自用",
+    "购买人 ID": "VIP会员",
+    "购买人 QQ": "345678901",
+    "实际使用人 ID": "被帮回购人",
+    "实际使用人 QQ": "456789012",
+    "积分": "",
+    "发货链接": "",
+    "备注": "会员帮回购"
   }
 ]`
 
-const identityRoles = ['文游作者', '美工美化', '小说作者', '美工', '美化', '画师', '文游', '作者']
+const usageFields = ['文游作者', '小说作者', '非重氪独立游戏作者', '美工']
+const acquisitionMethods = ['购买', '活动购买', '被赞助', '回购', '会员帮回购', '中奖', '退圈掉落']
+const usagePurposes = ['自用', '赞助待定', '赞助确定']
 
 function firstValue(record, names) {
   for (const name of names) {
@@ -253,6 +259,7 @@ function importDisplayId(record, suffix) {
 
 function clearAll() {
   jsonText.value = ''
+  authFile.value = null
   isValid.value = false
   validateStatus.value = null
   importResult.value = null
@@ -266,9 +273,20 @@ function fillTxExample() {
 }
 
 function fillAuthExample() {
+  authFile.value = null
   jsonText.value = authExampleJSON
   isValid.value = false
   validateStatus.value = null
+  importResult.value = null
+}
+
+function onAuthFileSelect(event) {
+  const file = event.target.files?.[0]
+  authFile.value = file || null
+  isValid.value = !!file
+  validateStatus.value = file
+    ? { type: 'success', message: `已选择 Excel 文件：${file.name}` }
+    : null
   importResult.value = null
 }
 
@@ -317,8 +335,13 @@ function validateTx() {
 
 function validateAuth() {
   importResult.value = null
+  if (authFile.value) {
+    validateStatus.value = { type: 'success', message: `将上传 Excel 文件：${authFile.value.name}` }
+    isValid.value = true
+    return
+  }
   if (!jsonText.value.trim()) {
-    validateStatus.value = { type: 'error', message: '请先输入 JSON 数据' }
+    validateStatus.value = { type: 'error', message: '请先选择 Excel 文件或输入 JSON 数据' }
     isValid.value = false
     return
   }
@@ -331,30 +354,22 @@ function validateAuth() {
     }
 
     const errors = []
-    const VALID_TYPES = ['自用', '已赞助', '被赞助', '赞助待定', '赞待', 'self', 'sponsor', 'sponsored', 'sponsor_pending']
     data.forEach((item, idx) => {
       const n = idx + 1
-      if (!item.name && !item.sku_code) errors.push(`第 ${n} 条：缺少 name 或 sku_code 字段`)
-      const t1 = firstValue(item, ['acquisition_type_1', 'acquisition_type1', 'type1', 'type_1', '获取类型1', '获取类型_1'])
-      if (!t1) errors.push(`第 ${n} 条：缺少 acquisition_type_1 字段`)
-      else if (!VALID_TYPES.includes(t1)) errors.push(`第 ${n} 条：acquisition_type_1 值无效（${t1}）`)
-      const role1 = importIdentityRole(item, '1')
-      const nickname1 = importIdentityNickname(item, '1')
-      if (!importDisplayId(item, '1') && !importQq(item, '1') && !nickname1) {
-        errors.push(`第 ${n} 条：用户1需至少提供 id1、qq1 或圈名ID1`)
+      if (!firstValue(item, ['素材 SKU', '素材SKU', 'SKU', 'sku_code']) && !firstValue(item, ['素材名称', 'name', 'item_name'])) {
+        errors.push(`第 ${n} 条：素材 SKU 和素材名称至少填写一个`)
       }
-      if (role1 && !identityRoles.includes(role1)) {
-        errors.push(`第 ${n} 条：领域1 仅支持文游作者、美工美化、小说作者`)
+      const usageField = firstValue(item, ['使用领域', 'usage_field'])
+      const acquisitionMethod = firstValue(item, ['获取途径', 'acquisition_method'])
+      const usagePurpose = firstValue(item, ['用途', 'usage_purpose'])
+      if (!usageFields.includes(usageField)) errors.push(`第 ${n} 条：使用领域无效（${usageField || '空'}）`)
+      if (!acquisitionMethods.includes(acquisitionMethod)) errors.push(`第 ${n} 条：获取途径无效（${acquisitionMethod || '空'}）`)
+      if (!usagePurposes.includes(usagePurpose)) errors.push(`第 ${n} 条：用途无效（${usagePurpose || '空'}）`)
+      if (!firstValue(item, ['购买人 ID', '购买人ID', 'purchaser_id']) && !firstValue(item, ['购买人 QQ', '购买人QQ', 'purchaser_qq'])) {
+        errors.push(`第 ${n} 条：购买人 ID 和购买人 QQ 至少填写一个`)
       }
-      if (['文游作者', '文游', '作者'].includes(role1) && !importIdentityUid(item, '1')) {
-        errors.push(`第 ${n} 条：领域1 为文游作者时需填写 uid1/文游UID1`)
-      }
-      const role2 = importIdentityRole(item, '2')
-      if (role2 && !identityRoles.includes(role2)) {
-        errors.push(`第 ${n} 条：领域2 仅支持文游作者、美工美化、小说作者`)
-      }
-      if (['文游作者', '文游', '作者'].includes(role2) && !importIdentityUid(item, '2')) {
-        errors.push(`第 ${n} 条：领域2 为文游作者时需填写 uid2/文游UID2`)
+      if (usagePurpose !== '赞助待定' && !firstValue(item, ['实际使用人 ID', '实际使用人ID', 'actual_id']) && !firstValue(item, ['实际使用人 QQ', '实际使用人QQ', 'actual_qq'])) {
+        errors.push(`第 ${n} 条：非赞助待定记录需要实际使用人 ID 或 QQ`)
       }
     })
 
@@ -401,7 +416,13 @@ async function handleImportAuth() {
   importing.value = true
   importResult.value = null
   try {
-    const data = JSON.parse(jsonText.value.trim())
+    const data = authFile.value
+      ? (() => {
+          const fd = new FormData()
+          fd.append('file', authFile.value)
+          return fd
+        })()
+      : JSON.parse(jsonText.value.trim())
     const res = await transactionsAPI.importAuthorizations(data)
     const successCount = res.imported ?? res.success ?? 0
     const failCount = res.failed ?? res.errors?.length ?? 0

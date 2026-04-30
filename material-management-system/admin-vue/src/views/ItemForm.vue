@@ -32,13 +32,6 @@
             <span v-if="errors.artist" class="form-error">{{ errors.artist }}</span>
           </div>
           <div class="form-group">
-            <label class="form-label">素材归类</label>
-            <select v-model="form.material_domain" class="form-select">
-              <option value="文游类">文游类</option>
-              <option value="美工美化类">美工美化类</option>
-            </select>
-          </div>
-          <div class="form-group">
             <label class="form-label">价格(pts) <span style="color:#ef4444;">*</span></label>
             <input v-model.number="form.price" type="number" min="0" class="form-input" placeholder="请输入价格" required />
             <span v-if="errors.price" class="form-error">{{ errors.price }}</span>
@@ -110,9 +103,9 @@
           <div class="form-group" style="grid-column:1/-1;">
             <label class="checkbox-item">
               <input type="checkbox" v-model="form.queue_enabled" />
-              开启排队限购 / 插队购买
+              开启排队限购
             </label>
-            <div class="form-hint">开启后，普通购买入口关闭，仅允许符合条件的 VIP 用户使用插队购买。</div>
+            <div class="form-hint">插队权益已下线；该开关仅保留历史排队素材标记。</div>
           </div>
         </div>
       </div>
@@ -191,7 +184,6 @@ const form = ref({
   sku_code: '',
   name: '',
   artist: '',
-  material_domain: '美工美化类',
   price: '',
   status: 'on_sale',
   priority_only: false,
@@ -262,7 +254,6 @@ async function loadItem() {
       sku_code: item.sku_code || '',
       name: item.name || '',
       artist: item.artist || '',
-      material_domain: item.material_domain || '美工美化类',
       price: item.price ?? '',
       status: item.status || 'on_sale',
       priority_only: !!item.priority_only,
@@ -291,7 +282,6 @@ async function handleSubmit() {
     fd.append('sku_code', form.value.sku_code)
     fd.append('name', form.value.name)
     fd.append('artist', form.value.artist)
-    fd.append('material_domain', form.value.material_domain)
     fd.append('price', String(Number(form.value.price)))
     fd.append('status', form.value.status)
     fd.append('priority_only', String(!!form.value.priority_only))

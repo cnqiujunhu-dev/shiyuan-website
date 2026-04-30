@@ -6,6 +6,7 @@ const vipLevelSchema = new mongoose.Schema(
     threshold: { type: Number, required: true },
     perks: {
       buyback_per_year: { type: Number, default: 0 },
+      assisted_buyback_per_year: { type: Number, default: 0 },
       transfer_per_year: { type: Number, default: 0 },
       skip_queue_per_year: { type: Number, default: 0 },
       priority_buy: { type: Boolean, default: false }

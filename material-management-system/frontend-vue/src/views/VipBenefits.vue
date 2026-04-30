@@ -25,6 +25,10 @@
           <div class="vip-stat-value">{{ auth.vipLevel >= 1 ? (displayData.buyback_remaining ?? '-') : '-' }}</div>
         </div>
         <div class="vip-stat">
+          <div class="vip-stat-label">剩余帮回购次数</div>
+          <div class="vip-stat-value">{{ auth.vipLevel >= 1 ? (displayData.assisted_buyback_remaining ?? '-') : '-' }}</div>
+        </div>
+        <div class="vip-stat">
           <div class="vip-stat-label">剩余转让次数</div>
           <div class="vip-stat-value">{{ auth.vipLevel >= 2 ? (displayData.transfer_remaining ?? '-') : '-' }}</div>
         </div>
@@ -67,8 +71,8 @@
               <th style="padding:10px 16px;text-align:left;font-weight:600;white-space:nowrap;">等级</th>
               <th style="padding:10px 16px;text-align:left;font-weight:600;white-space:nowrap;">积分门槛</th>
               <th style="padding:10px 16px;text-align:left;font-weight:600;white-space:nowrap;">回购/年</th>
+              <th style="padding:10px 16px;text-align:left;font-weight:600;white-space:nowrap;">帮回购/年</th>
               <th style="padding:10px 16px;text-align:left;font-weight:600;white-space:nowrap;">转让/年</th>
-              <th style="padding:10px 16px;text-align:left;font-weight:600;white-space:nowrap;">免抢/年</th>
               <th style="padding:10px 16px;text-align:left;font-weight:600;white-space:nowrap;">VIP 优先购</th>
             </tr>
           </thead>
@@ -90,8 +94,8 @@
               </td>
               <td style="padding:10px 16px;white-space:nowrap;">{{ row.threshold.toLocaleString() }} 积分</td>
               <td style="padding:10px 16px;text-align:center;">{{ row.buyback }}</td>
+              <td style="padding:10px 16px;text-align:center;">{{ row.assistedBuyback ?? row.assisted_buyback_per_year ?? row.buyback }}</td>
               <td style="padding:10px 16px;text-align:center;">{{ row.transfer === 0 ? '—' : row.transfer }}</td>
-              <td style="padding:10px 16px;text-align:center;">{{ row.skipQueue === 0 ? '—' : row.skipQueue }}</td>
               <td style="padding:10px 16px;text-align:center;">
                 <span v-if="row.priorityBuy" class="badge badge-success">优先购</span>
                 <span v-else class="text-muted">—</span>
@@ -107,11 +111,10 @@
       <div class="section-title" style="margin-bottom:14px;">说明</div>
       <ul style="padding-left:20px;color:var(--text-muted);font-size:0.875rem;line-height:2.2;">
         <li>VIP 等级依据累计积分达到对应门槛自动升级，积分由购买记录累积产生。</li>
-        <li>每年年度权益（回购、转让、免抢次数）于每年 1 月 1 日重置，未使用次数不可累计至下一年。</li>
+        <li>每年年度权益（回购、帮回购、转让次数）于每年 1 月 1 日重置，未使用次数不可累计至下一年。</li>
         <li>只要年度消费不为 0，等级在年末不会降级。</li>
         <li>转让操作仅限 VIP2 及以上，转让后素材不可撤回，请谨慎操作。</li>
-        <li>回购资格提前联系管理员确认，管理员审核通过后方可执行回购。回购内容仅限自用，不可转让。若作者 A 帮作者 B 回购，作者 B 需有在橙/闪/艺文游平台发布过作品，A 方可帮回购。V1 帮回购限 1 次/年，其他等级无限制。</li>
-        <li>免抢资格（skip-queue）为每期开放前由平台统一安排，具体时间以公告为准。</li>
+        <li>回购改为由管理员导入授权名单生效，不再走用户申请审核；回购和帮回购素材均不可转让。</li>
         <li>VIP 优先购为在正式开售前享有优先购买权，具体以公告为准。</li>
         <li>平台保留对 VIP 规则进行合理调整的权利，重大调整将提前公告。</li>
       </ul>
@@ -130,11 +133,9 @@ const auth = useAuthStore()
 const userStore = useUserStore()
 
 const DEFAULT_VIP_TIERS = [
-  { level: 1, threshold: 888, buyback: 1, transfer: 0, skipQueue: 0, priorityBuy: true },
-  { level: 2, threshold: 2688, buyback: 1, transfer: 1, skipQueue: 0, priorityBuy: true },
-  { level: 3, threshold: 5688, buyback: 2, transfer: 2, skipQueue: 0, priorityBuy: true },
-  { level: 4, threshold: 8888, buyback: 2, transfer: 3, skipQueue: 3, priorityBuy: true },
-  { level: 5, threshold: 16888, buyback: 3, transfer: 6, skipQueue: 6, priorityBuy: true },
+  { level: 1, threshold: 888, buyback: 3, assistedBuyback: 1, transfer: 0, priorityBuy: true },
+  { level: 2, threshold: 2688, buyback: 5, assistedBuyback: 5, transfer: 5, priorityBuy: true },
+  { level: 3, threshold: 5688, buyback: 8, assistedBuyback: 8, transfer: 10, priorityBuy: true },
 ]
 
 const vipTiers = ref(DEFAULT_VIP_TIERS)
@@ -144,9 +145,7 @@ function formatLevelName(level) {
   const aliases = {
     1: 'VIP1·铜牌',
     2: 'VIP2·银牌',
-    3: 'VIP3·金牌',
-    4: 'VIP4·铂金',
-    5: 'VIP5·钻石'
+    3: 'VIP3·金牌'
   }
   return aliases[level] || `VIP${level}`
 }
@@ -159,6 +158,7 @@ const displayData = computed(() => {
     points_total:       s?.points_total       ?? s?.total_points       ?? u?.points_total       ?? 0,
     annual_spend:       s?.annual_spend        ?? s?.annual_spending    ?? u?.annual_spend        ?? 0,
     buyback_remaining:  s?.buyback_remaining   ?? s?.repurchase_quota_remaining ?? u?.buyback_remaining  ?? null,
+    assisted_buyback_remaining: s?.assisted_buyback_remaining ?? u?.assisted_buyback_remaining ?? null,
     transfer_remaining: s?.transfer_remaining  ?? s?.transfer_quota_remaining   ?? u?.transfer_remaining ?? null,
   }
 })

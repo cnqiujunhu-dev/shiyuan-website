@@ -5,7 +5,7 @@
         <div class="page-title">VIP 等级配置</div>
         <div class="page-subtitle">管理 VIP 等级门槛与权益设置</div>
       </div>
-      <button class="btn btn-primary" @click="openCreate">➕ 新增等级</button>
+      <button class="btn btn-primary" @click="openCreate">补充等级</button>
     </div>
 
     <div class="page">
@@ -18,8 +18,8 @@
               <th>等级</th>
               <th>积分门槛</th>
               <th>回购次数/年</th>
+              <th>帮回购次数/年</th>
               <th>转让次数/年</th>
-              <th>免抢次数/年</th>
               <th>VIP 优先购</th>
               <th>操作</th>
             </tr>
@@ -31,8 +31,8 @@
               </td>
               <td>{{ lv.points_threshold ?? '-' }} 积分</td>
               <td>{{ lv.repurchase_per_year ?? '-' }} 次</td>
+              <td>{{ lv.assisted_buyback_per_year ?? lv.repurchase_per_year ?? '-' }} 次</td>
               <td>{{ lv.transfer_per_year ?? '-' }} 次</td>
-              <td>{{ lv.free_grab_per_year ?? '-' }} 次</td>
               <td>
                 <span v-if="lv.vip_priority" class="status-badge active">是</span>
                 <span v-else class="status-badge inactive">否</span>
@@ -60,8 +60,8 @@
         <div class="modal-body">
           <div v-if="!modal.isEdit" class="form-group mb-3">
             <label class="form-label">等级编号 <span class="required">*</span></label>
-            <input v-model.number="modal.form.level" type="number" min="1" max="10" class="form-input" />
-            <span class="form-hint">如 6 代表 VIP6</span>
+            <input v-model.number="modal.form.level" type="number" min="1" max="3" class="form-input" />
+            <span class="form-hint">仅支持 VIP1、VIP2、VIP3</span>
           </div>
           <div class="form-grid">
             <div class="form-group">
@@ -73,12 +73,12 @@
               <input v-model.number="modal.form.repurchase_per_year" type="number" min="0" class="form-input" placeholder="0" />
             </div>
             <div class="form-group">
-              <label class="form-label">转让次数/年</label>
-              <input v-model.number="modal.form.transfer_per_year" type="number" min="0" class="form-input" placeholder="0" />
+              <label class="form-label">帮回购次数/年</label>
+              <input v-model.number="modal.form.assisted_buyback_per_year" type="number" min="0" class="form-input" placeholder="0" />
             </div>
             <div class="form-group">
-              <label class="form-label">免抢次数/年</label>
-              <input v-model.number="modal.form.free_grab_per_year" type="number" min="0" class="form-input" placeholder="0" />
+              <label class="form-label">转让次数/年</label>
+              <input v-model.number="modal.form.transfer_per_year" type="number" min="0" class="form-input" placeholder="0" />
             </div>
           </div>
           <div class="form-group mt-3">
@@ -116,8 +116,8 @@ const modal = ref({
     level: '',
     points_threshold: 0,
     repurchase_per_year: 0,
+    assisted_buyback_per_year: 0,
     transfer_per_year: 0,
-    free_grab_per_year: 0,
     vip_priority: false
   }
 })
@@ -142,8 +142,8 @@ function openEdit(lv) {
       level: lv.level,
       points_threshold: lv.points_threshold ?? 0,
       repurchase_per_year: lv.repurchase_per_year ?? 0,
+      assisted_buyback_per_year: lv.assisted_buyback_per_year ?? lv.repurchase_per_year ?? 0,
       transfer_per_year: lv.transfer_per_year ?? 0,
-      free_grab_per_year: lv.free_grab_per_year ?? 0,
       vip_priority: !!lv.vip_priority
     }
   }
@@ -159,8 +159,8 @@ function openCreate() {
       level: '',
       points_threshold: 0,
       repurchase_per_year: 0,
+      assisted_buyback_per_year: 0,
       transfer_per_year: 0,
-      free_grab_per_year: 0,
       vip_priority: false
     }
   }

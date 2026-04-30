@@ -17,8 +17,10 @@
       <div class="asset-meta">
         <span v-if="item.artist">画师：{{ item.artist }}</span>
         <span v-if="item.price != null">¥{{ item.price }}</span>
-        <span v-if="ownership.points_delta">{{ ownership.points_delta }} 积分</span>
+        <span>{{ ownership.points_delta ?? 0 }} 积分</span>
+        <span v-if="ownership.usage_field" class="badge badge-default">{{ ownership.usage_field }}</span>
         <span class="badge" :class="acquisitionBadgeClass">{{ acquisitionLabel }}</span>
+        <span v-if="ownership.usage_purpose" class="badge badge-default">{{ ownership.usage_purpose }}</span>
       </div>
       <div class="asset-tags" v-if="tags.length">
         <span
@@ -46,7 +48,7 @@
           class="btn btn-primary btn-sm"
           @click="emit('transfer', ownership._id || ownership.id)"
         >转让</button>
-        <span v-if="!canTransfer && ownership.transfer_locked" class="text-xs text-muted" style="display:block;max-width:100px;">回购素材不可转让</span>
+        <span v-if="!canTransfer && ownership.transfer_locked" class="text-xs text-muted" style="display:block;max-width:100px;">该素材不可转让</span>
         <span v-else-if="!canTransfer && auth.vipLevel < 2" class="text-xs text-muted" style="display:block;max-width:100px;">VIP2 以上可转让</span>
       </template>
 
@@ -109,15 +111,15 @@
           <button class="modal-close" @click="showSponsorInfo = false">✕</button>
         </div>
         <div style="padding: 12px; background:#f9fafb; border-radius:8px; font-size:0.9rem;">
-          <template v-if="ownership.acquisition_type === 'sponsor' && ownership.target_user_id">
-            <div v-if="ownership.target_user_id.platform_id">ID：{{ ownership.target_user_id.platform_id }}</div>
-            <div v-if="ownership.target_user_id.qq">QQ：{{ ownership.target_user_id.qq }}</div>
-            <div v-if="!ownership.target_user_id.platform_id && !ownership.target_user_id.qq">{{ ownership.target_user_id.username || '未知' }}</div>
+          <template v-if="ownership.acquisition_type === 'sponsor'">
+            <div v-if="ownership.actual_display_id || ownership.target_user_id?.platform_id">ID：{{ ownership.actual_display_id || ownership.target_user_id?.platform_id }}</div>
+            <div v-if="ownership.actual_qq || ownership.target_user_id?.qq">QQ：{{ ownership.actual_qq || ownership.target_user_id?.qq }}</div>
+            <div v-if="!ownership.actual_display_id && !ownership.actual_qq && ownership.target_user_id">{{ ownership.target_user_id.username || '未知' }}</div>
           </template>
-          <template v-else-if="ownership.acquisition_type === 'sponsored' && ownership.source_user_id">
-            <div v-if="ownership.source_user_id.platform_id">ID：{{ ownership.source_user_id.platform_id }}</div>
-            <div v-if="ownership.source_user_id.qq">QQ：{{ ownership.source_user_id.qq }}</div>
-            <div v-if="!ownership.source_user_id.platform_id && !ownership.source_user_id.qq">{{ ownership.source_user_id.username || '未知' }}</div>
+          <template v-else-if="ownership.acquisition_type === 'sponsored'">
+            <div v-if="ownership.purchaser_display_id || ownership.source_user_id?.platform_id">ID：{{ ownership.purchaser_display_id || ownership.source_user_id?.platform_id }}</div>
+            <div v-if="ownership.purchaser_qq || ownership.source_user_id?.qq">QQ：{{ ownership.purchaser_qq || ownership.source_user_id?.qq }}</div>
+            <div v-if="!ownership.purchaser_display_id && !ownership.purchaser_qq && ownership.source_user_id">{{ ownership.source_user_id.username || '未知' }}</div>
           </template>
           <div v-else class="text-muted">暂无信息</div>
         </div>
@@ -169,7 +171,7 @@ const acquisitionTypeMap = {
 }
 
 const acquisitionLabel = computed(() => {
-  return acquisitionTypeMap[props.ownership.acquisition_type] || props.ownership.acquisition_type || '未知'
+  return props.ownership.acquisition_method || acquisitionTypeMap[props.ownership.acquisition_type] || props.ownership.acquisition_type || '未知'
 })
 
 const acquisitionBadgeClass = computed(() => {
@@ -182,7 +184,11 @@ const acquisitionBadgeClass = computed(() => {
 })
 
 const canTransfer = computed(() => {
-  return isSelfType.value && auth.vipLevel >= 2 && !props.ownership.transfer_locked
+  return isSelfType.value
+    && auth.vipLevel >= 2
+    && !props.ownership.transfer_locked
+    && ['购买', '活动购买'].includes(props.ownership.acquisition_method || '购买')
+    && (props.ownership.usage_purpose || '自用') === '自用'
 })
 
 const isSelfType = computed(() => {

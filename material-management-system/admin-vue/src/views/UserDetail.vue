@@ -79,8 +79,8 @@
               <span class="info-value">{{ user.buyback_remaining || 0 }} 次</span>
             </div>
             <div class="info-item">
-              <span class="info-label">免抢剩余</span>
-              <span class="info-value">{{ user.skip_queue_remaining || 0 }} 次</span>
+              <span class="info-label">帮回购剩余</span>
+              <span class="info-value">{{ user.assisted_buyback_remaining || 0 }} 次</span>
             </div>
             <div class="info-item">
               <span class="info-label">注册时间</span>
